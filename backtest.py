@@ -147,6 +147,36 @@ def run_backtest(csv_file, strategy_function, initial_capital=10000, window=10, 
         visible_data = df.iloc[i - window : i + 1]
         instructions = strategy_function(visible_data, open_trades, capital)
 
+        # Normalize and validate strategy instructions
+        if instructions is None:
+            instructions = []
+        elif isinstance(instructions, dict):
+            # Allow a single instruction dict to be returned
+            instructions = [instructions]
+
+        # At this point, instructions should be an iterable of dicts
+        try:
+            iter(instructions)
+        except TypeError:
+            raise TypeError(
+                "strategy_function must return an iterable of instruction dicts, "
+                "a single instruction dict, or None."
+            )
+
+        normalized_instructions = []
+        for idx, inst in enumerate(instructions):
+            if not isinstance(inst, dict):
+                raise TypeError(
+                    f"strategy_function returned a non-dict instruction at index {idx}: "
+                    f"{type(inst).__name__}"
+                )
+            if 'action' not in inst:
+                raise KeyError(
+                    f"strategy_function returned an instruction without an 'action' key at index {idx}."
+                )
+            normalized_instructions.append(inst)
+
+        instructions = normalized_instructions
         # 3. Instruction Execution
         for inst in instructions:
             if inst['action'] == 'CLOSE':
