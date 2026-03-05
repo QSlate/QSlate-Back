@@ -252,7 +252,8 @@ STATS_REGISTRY = {
 
 def generate_report(df_trades, initial_capital=10000, requested_stats=None):
     if df_trades.empty:
-        return "No trades to analyze."
+        # Return a Series to keep the return type consistent with the non-empty case
+        return pd.Series({"Message": "No trades to analyze."})
 
     if requested_stats is None:
         requested_stats = list(STATS_REGISTRY.keys())
