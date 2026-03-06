@@ -4,6 +4,8 @@ import pandas as pd
 from typing import List, Optional
 import backtest
 import os
+import glob
+import yfinance as yf
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Backtest API Service")
@@ -59,23 +61,49 @@ def get_options():
     }
 
 
+ASSET_INFO_CACHE = {}
+
 @app.get("/api/assets")
 def get_assets():
     """
-    Get available assets/tickers for the platform.
+    Get available assets/tickers for the platform by reading downloaded local CSVs.
     """
-    return [
-        { "symbol": "AAPL", "name": "Apple Inc.", "exchange": "NASDAQ", "type": "stock" },
-        { "symbol": "AMZN", "name": "Amazon.com, Inc.", "exchange": "NASDAQ", "type": "stock" },
-        { "symbol": "GOOGL", "name": "Alphabet Inc.", "exchange": "NASDAQ", "type": "stock" },
-        { "symbol": "MSFT", "name": "Microsoft Corporation", "exchange": "NASDAQ", "type": "stock" },
-        { "symbol": "TSLA", "name": "Tesla, Inc.", "exchange": "NASDAQ", "type": "stock" },
-        { "symbol": "NVDA", "name": "NVIDIA Corporation", "exchange": "NASDAQ", "type": "stock" },
-        { "symbol": "META", "name": "Meta Platforms, Inc.", "exchange": "NASDAQ", "type": "stock" },
-        { "symbol": "BTCUSD", "name": "Bitcoin / Dollar", "exchange": "BINANCE", "type": "crypto" },
-        { "symbol": "ETHUSD", "name": "Ethereum / Dollar", "exchange": "BINANCE", "type": "crypto" },
-        { "symbol": "SOLUSD", "name": "Solana / Dollar", "exchange": "CBSE", "type": "crypto" }
-    ]
+    files = glob.glob("DATA_1H_*.csv")
+    tickers = [f.replace("DATA_1H_", "").replace(".csv", "") for f in files]
+    
+    results = []
+    for ticker in tickers:
+        if ticker not in ASSET_INFO_CACHE:
+            try:
+                t = yf.Ticker(ticker)
+                info = t.info
+                quote_type = info.get("quoteType", "").lower()
+                
+                # Map yfinance quoteType to stock/crypto
+                if quote_type == "equity":
+                    asset_type = "stock"
+                elif quote_type == "cryptocurrency":
+                    asset_type = "crypto"
+                else:
+                    asset_type = quote_type
+
+                ASSET_INFO_CACHE[ticker] = {
+                    "symbol": ticker,
+                    "name": info.get("shortName", ticker),
+                    "exchange": info.get("exchange", "Unknown"),
+                    "type": asset_type
+                }
+            except Exception as e:
+                # Fallback if yfinance fetch fails or is missing info
+                ASSET_INFO_CACHE[ticker] = {
+                    "symbol": ticker,
+                    "name": ticker,
+                    "exchange": "Unknown",
+                    "type": "unknown"
+                }
+        results.append(ASSET_INFO_CACHE[ticker])
+        
+    return results
 
 
 class BacktestRequest(BaseModel):
