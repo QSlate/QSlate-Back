@@ -4,6 +4,8 @@ import pandas as pd
 from typing import List, Optional
 import backtest
 import os
+import glob
+import yfinance as yf
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Backtest API Service")
@@ -32,7 +34,6 @@ def get_historical_data(ticker: str, limit: int = 100):
         if len(df) > limit:
             df = df.tail(limit)
         
-        # Rename columns to match the new naming convention
         df = df.rename(columns={
             "Price": "time",
             "Close": "close",
@@ -58,6 +59,51 @@ def get_options():
         "stats": list(backtest.STATS_REGISTRY.keys()),
         "sort_trades_by": ["date", "pnl_high_to_low", "pnl_low_to_high"]
     }
+
+
+ASSET_INFO_CACHE = {}
+
+@app.get("/api/assets")
+def get_assets():
+    """
+    Get available assets/tickers for the platform by reading downloaded local CSVs.
+    """
+    files = glob.glob("DATA_1H_*.csv")
+    tickers = [f.replace("DATA_1H_", "").replace(".csv", "") for f in files]
+    
+    results = []
+    for ticker in tickers:
+        if ticker not in ASSET_INFO_CACHE:
+            try:
+                t = yf.Ticker(ticker)
+                info = t.info
+                quote_type = info.get("quoteType", "").lower()
+                
+                # Map yfinance quoteType to stock/crypto
+                if quote_type == "equity":
+                    asset_type = "stock"
+                elif quote_type == "cryptocurrency":
+                    asset_type = "crypto"
+                else:
+                    asset_type = quote_type
+
+                ASSET_INFO_CACHE[ticker] = {
+                    "symbol": ticker,
+                    "name": info.get("shortName", ticker),
+                    "exchange": info.get("exchange", "Unknown"),
+                    "type": asset_type
+                }
+            except Exception as e:
+                # Fallback if yfinance fetch fails or is missing info
+                ASSET_INFO_CACHE[ticker] = {
+                    "symbol": ticker,
+                    "name": ticker,
+                    "exchange": "Unknown",
+                    "type": "unknown"
+                }
+        results.append(ASSET_INFO_CACHE[ticker])
+        
+    return results
 
 
 class BacktestRequest(BaseModel):
