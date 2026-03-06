@@ -31,6 +31,17 @@ def get_historical_data(ticker: str, limit: int = 100):
         df = pd.read_csv(file_name)
         if len(df) > limit:
             df = df.tail(limit)
+        
+        # Rename columns to match the new naming convention
+        df = df.rename(columns={
+            "Price": "time",
+            "Close": "close",
+            "High": "high",
+            "Low": "low",
+            "Open": "open",
+            "Volume": "volume"
+        })
+        
         # Convert to dictionary for JSON response
         return df.to_dict(orient="records")
     except Exception as e:
