@@ -32,7 +32,6 @@ def get_historical_data(ticker: str, limit: int = 100):
         if len(df) > limit:
             df = df.tail(limit)
         
-        # Rename columns to match the new naming convention
         df = df.rename(columns={
             "Price": "time",
             "Close": "close",
@@ -58,6 +57,25 @@ def get_options():
         "stats": list(backtest.STATS_REGISTRY.keys()),
         "sort_trades_by": ["date", "pnl_high_to_low", "pnl_low_to_high"]
     }
+
+
+@app.get("/api/assets")
+def get_assets():
+    """
+    Get available assets/tickers for the platform.
+    """
+    return [
+        { "symbol": "AAPL", "name": "Apple Inc.", "exchange": "NASDAQ", "type": "stock" },
+        { "symbol": "AMZN", "name": "Amazon.com, Inc.", "exchange": "NASDAQ", "type": "stock" },
+        { "symbol": "GOOGL", "name": "Alphabet Inc.", "exchange": "NASDAQ", "type": "stock" },
+        { "symbol": "MSFT", "name": "Microsoft Corporation", "exchange": "NASDAQ", "type": "stock" },
+        { "symbol": "TSLA", "name": "Tesla, Inc.", "exchange": "NASDAQ", "type": "stock" },
+        { "symbol": "NVDA", "name": "NVIDIA Corporation", "exchange": "NASDAQ", "type": "stock" },
+        { "symbol": "META", "name": "Meta Platforms, Inc.", "exchange": "NASDAQ", "type": "stock" },
+        { "symbol": "BTCUSD", "name": "Bitcoin / Dollar", "exchange": "BINANCE", "type": "crypto" },
+        { "symbol": "ETHUSD", "name": "Ethereum / Dollar", "exchange": "BINANCE", "type": "crypto" },
+        { "symbol": "SOLUSD", "name": "Solana / Dollar", "exchange": "CBSE", "type": "crypto" }
+    ]
 
 
 class BacktestRequest(BaseModel):
