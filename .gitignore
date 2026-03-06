@@ -1,9 +1,2 @@
-__pycache__/backtest.cpython-313.pyc
-__pycache__/main.cpython-313.pyc
-.idea/.gitignore
-.idea/back.iml
-.idea/misc.xml
-.idea/modules.xml
-.idea/vcs.xml
-.idea/inspectionProfiles/profiles_settings.xml
-.idea/inspectionProfiles/Project_Default.xml
+__pycache__/
+.idea/
