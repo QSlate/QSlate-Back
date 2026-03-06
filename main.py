@@ -106,6 +106,26 @@ def get_assets():
     return results
 
 
+@app.post("/api/assets/download/{ticker}")
+def download_asset(ticker: str):
+    """
+    Download hourly historical data for a specific ticker from yfinance 
+    and save it locally as a CSV file to make it available for backtesting.
+    """
+    ticker = ticker.upper()
+    try:
+        # Call the existing fetch method from backtest.py
+        backtest.fetch_hourly_data(ticker)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    # Verify the file was actually created (fetch_hourly_data prints errors instead of throwing them if data is empty)
+    file_name = f"DATA_1H_{ticker}.csv"
+    if not os.path.exists(file_name):
+        raise HTTPException(status_code=404, detail=f"Failed to download data for {ticker}. Check if the ticker is valid.")
+        
+    return {"message": f"Successfully downloaded and saved data for {ticker}", "ticker": ticker}
+
 class BacktestRequest(BaseModel):
     ticker: str = Field(..., description="The asset ticker to backtest (e.g., AAPL)")
     initial_capital: float = Field(10000.0, description="The starting balance.")
