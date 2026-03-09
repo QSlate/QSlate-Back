@@ -134,6 +134,8 @@ class BacktestRequest(BaseModel):
     strategy_code: str = Field(..., description="The raw Python code string containing the strategy function.")
     strategy_function_name: str = Field("custom_strategy", description="Must exactly match the name of the function inside the strategy_code.")
     requested_stats: Optional[List[str]] = Field(None, description="Exact names of the statistics to evaluate. Hit GET /api/options to see available ones. 'None' means all.")
+    custom_stats_code: Optional[str] = Field(None, description="Raw Python code containing custom statistical format functions def stat(df, init_cap).")
+    custom_stats_names: Optional[List[str]] = Field(None, description="List of function names from 'custom_stats_code' to evaluate.")
     sort_trades_by: Optional[str] = Field("date", description="How to order output trades: 'date', 'pnl_high_to_low', or 'pnl_low_to_high'.", pattern="^(date|pnl_high_to_low|pnl_low_to_high)$")
     top_trades: Optional[int] = Field(None, description="Limit the total number of trades returned. 'None' means all trades.", ge=1)
 
@@ -178,9 +180,29 @@ def run_custom_backtest(req: BacktestRequest):
         raise HTTPException(status_code=500, detail=f"Error during backtest execution: {str(e)}")
 
     # 3. Generate Report
+    custom_stats_dict = {}
+    if req.custom_stats_code and req.custom_stats_names:
+        stats_env = {}
+        try:
+            exec(req.custom_stats_code, {}, stats_env)
+            for s_name in req.custom_stats_names:
+                if s_name in stats_env and callable(stats_env[s_name]):
+                    custom_stats_dict[s_name] = stats_env[s_name]
+                else:
+                    raise HTTPException(status_code=400, detail=f"Custom stat '{s_name}' not found or is not callable in code.")
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Error compiling custom stats code: {str(e)}")
+
     try:
         # If requested_stats is passed, it uses that; otherwise backtest.generate_report defaults to all of them
-        report = backtest.generate_report(df_history, initial_capital=req.initial_capital, requested_stats=req.requested_stats)
+        report = backtest.generate_report(
+            df_history, 
+            initial_capital=req.initial_capital, 
+            requested_stats=req.requested_stats,
+            custom_stats=custom_stats_dict if custom_stats_dict else None
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating report: {str(e)}")
     
