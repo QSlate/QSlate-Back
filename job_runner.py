@@ -15,7 +15,10 @@ class BacktestRunnerError(Exception):
 
 
 def run_backtest_job(req: BacktestRequest) -> Dict[str, Any]:
-    file_name = f"DATA_1H_{req.ticker}.csv"
+    ticker = req.ticker.upper()
+    if not ticker.isalnum():
+        raise BacktestRunnerError(status_code=400, detail=f"Invalid ticker format: {req.ticker}")
+    file_name = f"DATA_1H_{ticker}.csv"
     if not os.path.exists(file_name):
         raise BacktestRunnerError(status_code=404, detail=f"Data for ticker {req.ticker} not found.")
 
