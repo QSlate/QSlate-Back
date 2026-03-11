@@ -239,10 +239,11 @@ def my_rsi_strategy(history, open_trades, remaining_capital):
 def calc_max_drawdown(df, init_cap):
     if df.empty: return 0.0
     df_sorted = df.sort_values('exit_date')
-    cumulative_capital = init_cap + df_sorted['pnl_usd'].cumsum()
-    peak = cumulative_capital.cummax()
-    drawdown = (cumulative_capital - peak) / peak
-    return drawdown.min() * 100
+    # Track equity, starting at init_cap
+    equity_curve = pd.concat([pd.Series([init_cap]), init_cap + df_sorted['pnl_usd'].cumsum()]).reset_index(drop=True)
+    peak = equity_curve.cummax()
+    drawdown = (peak - equity_curve) / peak
+    return drawdown.max() * 100
 
 def calc_sharpe_ratio(df, init_cap):
     if df.empty or len(df) < 2: return 0.0
@@ -252,7 +253,7 @@ def calc_sharpe_ratio(df, init_cap):
 def calc_max_margin_usd(df, init_cap):
     if df.empty: return 0.0
     df_calc = df.copy()
-    df_calc['leverage'] = df_calc['leverage'].replace(0, 1)
+    df_calc['leverage'] = df_calc['leverage'].fillna(1).replace(0, 1)
     df_calc['margin'] = df_calc['size_usd'] / df_calc['leverage']
 
     events_in = pd.DataFrame({'date': df_calc['entry_date'], 'val': df_calc['margin']})
@@ -260,10 +261,32 @@ def calc_max_margin_usd(df, init_cap):
     timeline = pd.concat([events_in, events_out]).sort_values('date')
     return timeline['val'].cumsum().max()
 
+def calc_margin_utilization(df, init_cap):
+    if df.empty: return 0.0
+    df_calc = df.copy()
+    df_calc['leverage'] = df_calc['leverage'].fillna(1).replace(0, 1)
+    df_calc['margin'] = df_calc['size_usd'] / df_calc['leverage']
+
+    events_in = pd.DataFrame({'date': df_calc['entry_date'], 'margin_change': df_calc['margin'], 'pnl_change': 0.0})
+    events_out = pd.DataFrame({'date': df_calc['exit_date'], 'margin_change': -df_calc['margin'], 'pnl_change': df_calc['pnl_usd']})
+    
+    timeline = pd.concat([events_in, events_out]).sort_values('date')
+    timeline['running_margin'] = timeline['margin_change'].cumsum()
+    timeline['running_equity'] = init_cap + timeline['pnl_change'].cumsum()
+    
+    # Calculate margin util dynamically against running equity, fallback to 100% if equity is <= 0
+    timeline['margin_util'] = np.where(
+        timeline['running_equity'] > 0, 
+        (timeline['running_margin'] / timeline['running_equity']) * 100, 
+        100.0
+    )
+    return timeline['margin_util'].max()
+
 def calc_fitness(df, init_cap):
+    if df.empty: return 0.0
     ret = ((df['pnl_usd'].sum()) / init_cap) * 100
     dd = calc_max_drawdown(df, init_cap)
-    return ret / abs(dd) if dd != 0 else ret
+    return ret / dd if dd != 0 else ret
 
 STATS_REGISTRY = {
     "Total Trades": lambda df, cap: len(df),
@@ -276,28 +299,42 @@ STATS_REGISTRY = {
     "Max Drawdown (%)": calc_max_drawdown,
     "Sharpe Ratio": calc_sharpe_ratio,
     "Max Margin ($)": calc_max_margin_usd,
-    "Margin Util. (%)": lambda df, cap: (calc_max_margin_usd(df, cap) / cap) * 100,
+    "Margin Util. (%)": calc_margin_utilization,
     "Fitness Score": calc_fitness
 }
 
-def generate_report(df_trades, initial_capital=10000, requested_stats=None):
+def generate_report(df_trades, initial_capital=10000, requested_stats=None, custom_stats=None):
     if df_trades.empty:
         # Return a Series to keep the return type consistent with the non-empty case
         return pd.Series({"Message": "No trades to analyze."})
 
+    # Combine default registry and custom stats if any
+    available_stats = STATS_REGISTRY.copy()
+    if custom_stats:
+        overlapping = set(custom_stats.keys()) & set(available_stats.keys())
+        if overlapping:
+            raise ValueError(
+                "Custom stats collide with built-in stats: "
+                + ", ".join(sorted(overlapping))
+            )
+        available_stats.update(custom_stats)
+
     if requested_stats is None:
-        requested_stats = list(STATS_REGISTRY.keys())
+        requested_stats = list(available_stats.keys())
 
     results = {}
     for stat_name in requested_stats:
-        if stat_name in STATS_REGISTRY:
-            calc_function = STATS_REGISTRY[stat_name]
-            value = calc_function(df_trades, initial_capital)
+        if stat_name in available_stats:
+            calc_function = available_stats[stat_name]
+            try:
+                value = calc_function(df_trades, initial_capital)
 
-            if isinstance(value, float):
-                value = round(value, 3 if "Ratio" in stat_name or "Score" in stat_name else 2)
+                if isinstance(value, float):
+                    value = round(value, 3 if "Ratio" in stat_name or "Score" in stat_name else 2)
 
-            results[stat_name] = value
+                results[stat_name] = value
+            except Exception as e:
+                results[stat_name] = f"Error: {str(e)}"
         else:
             results[stat_name] = "Error: Unknown stat"
 

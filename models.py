@@ -11,7 +11,7 @@ class BacktestRequest(BaseModel):
         default_factory=list,
         description="List of technical indicators to calculate. Hit GET /api/options to see available ones.",
     )
-    strategy_code: str = Field(..., description="The raw Python code string containing the strategy function.")
+    strategy_code: str = Field(..., description="The raw Python code string containing the strategy function.", max_length=10000)
     strategy_function_name: str = Field(
         "custom_strategy",
         description="Must exactly match the name of the function inside the strategy_code.",
@@ -20,6 +20,8 @@ class BacktestRequest(BaseModel):
         None,
         description="Exact names of the statistics to evaluate. Hit GET /api/options to see available ones. 'None' means all.",
     )
+    custom_stats_code: Optional[str] = Field(None, description="Raw Python code containing custom statistical format functions def stat(df, init_cap).", max_length=10000)
+    custom_stats_names: Optional[List[str]] = Field(None, description="List of function names from 'custom_stats_code' to evaluate.")
     sort_trades_by: Optional[str] = Field(
         "date",
         description="How to order output trades: 'date', 'pnl_high_to_low', or 'pnl_low_to_high'.",

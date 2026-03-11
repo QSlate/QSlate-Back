@@ -24,7 +24,7 @@ def run_backtest_job(req: BacktestRequest) -> Dict[str, Any]:
 
     local_env: Dict[str, Any] = {}
     try:
-        exec(req.strategy_code, {}, local_env)
+        exec(req.strategy_code, local_env)
     except Exception as exc:
         raise BacktestRunnerError(status_code=400, detail=f"Error compiling strategy code: {exc}") from exc
 
@@ -49,13 +49,31 @@ def run_backtest_job(req: BacktestRequest) -> Dict[str, Any]:
     except Exception as exc:
         raise BacktestRunnerError(status_code=500, detail=f"Error during backtest execution: {exc}") from exc
 
+    custom_stats_dict = {}
+    if req.custom_stats_code and req.custom_stats_names:
+        stats_env: Dict[str, Any] = {}
+        try:
+            exec(req.custom_stats_code, stats_env)
+            for s_name in req.custom_stats_names:
+                if s_name in stats_env and callable(stats_env[s_name]):
+                    custom_stats_dict[s_name] = stats_env[s_name]
+                else:
+                    raise BacktestRunnerError(status_code=400, detail=f"Custom stat '{s_name}' not found or is not callable in code.")
+        except BacktestRunnerError:
+            raise
+        except Exception as exc:
+            raise BacktestRunnerError(status_code=400, detail=f"Error compiling custom stats code: {exc}") from exc
+
     try:
         report = backtest.generate_report(
             df_history,
             initial_capital=req.initial_capital,
             requested_stats=req.requested_stats,
+            custom_stats=custom_stats_dict if custom_stats_dict else None
         )
     except Exception as exc:
+        if custom_stats_dict:
+            raise BacktestRunnerError(status_code=400, detail=f"Error generating report while executing custom stats: {exc}") from exc
         raise BacktestRunnerError(status_code=500, detail=f"Error generating report: {exc}") from exc
 
     if not df_history.empty:
