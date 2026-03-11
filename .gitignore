@@ -1,2 +1,4 @@
 __pycache__/
 .idea/
+DATA_1H_*.csv
+.venv/

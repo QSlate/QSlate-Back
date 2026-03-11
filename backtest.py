@@ -253,7 +253,7 @@ def calc_sharpe_ratio(df, init_cap):
 def calc_max_margin_usd(df, init_cap):
     if df.empty: return 0.0
     df_calc = df.copy()
-    df_calc['leverage'] = df_calc['leverage'].replace(0, 1)
+    df_calc['leverage'] = df_calc['leverage'].fillna(1).replace(0, 1)
     df_calc['margin'] = df_calc['size_usd'] / df_calc['leverage']
 
     events_in = pd.DataFrame({'date': df_calc['entry_date'], 'val': df_calc['margin']})
@@ -264,7 +264,7 @@ def calc_max_margin_usd(df, init_cap):
 def calc_margin_utilization(df, init_cap):
     if df.empty: return 0.0
     df_calc = df.copy()
-    df_calc['leverage'] = df_calc['leverage'].replace(0, 1)
+    df_calc['leverage'] = df_calc['leverage'].fillna(1).replace(0, 1)
     df_calc['margin'] = df_calc['size_usd'] / df_calc['leverage']
 
     events_in = pd.DataFrame({'date': df_calc['entry_date'], 'margin_change': df_calc['margin'], 'pnl_change': 0.0})
@@ -311,6 +311,12 @@ def generate_report(df_trades, initial_capital=10000, requested_stats=None, cust
     # Combine default registry and custom stats if any
     available_stats = STATS_REGISTRY.copy()
     if custom_stats:
+        overlapping = set(custom_stats.keys()) & set(available_stats.keys())
+        if overlapping:
+            raise ValueError(
+                "Custom stats collide with built-in stats: "
+                + ", ".join(sorted(overlapping))
+            )
         available_stats.update(custom_stats)
 
     if requested_stats is None:
@@ -320,12 +326,15 @@ def generate_report(df_trades, initial_capital=10000, requested_stats=None, cust
     for stat_name in requested_stats:
         if stat_name in available_stats:
             calc_function = available_stats[stat_name]
-            value = calc_function(df_trades, initial_capital)
+            try:
+                value = calc_function(df_trades, initial_capital)
 
-            if isinstance(value, float):
-                value = round(value, 3 if "Ratio" in stat_name or "Score" in stat_name else 2)
+                if isinstance(value, float):
+                    value = round(value, 3 if "Ratio" in stat_name or "Score" in stat_name else 2)
 
-            results[stat_name] = value
+                results[stat_name] = value
+            except Exception as e:
+                results[stat_name] = f"Error: {str(e)}"
         else:
             results[stat_name] = "Error: Unknown stat"
 

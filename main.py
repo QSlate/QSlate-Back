@@ -131,10 +131,10 @@ class BacktestRequest(BaseModel):
     initial_capital: float = Field(10000.0, description="The starting balance.")
     window: int = Field(10, description="The number of historical rows passed to the strategy at each step.")
     indicators: Optional[List[str]] = Field([], description="List of technical indicators to calculate. Hit GET /api/options to see available ones.")
-    strategy_code: str = Field(..., description="The raw Python code string containing the strategy function.")
+    strategy_code: str = Field(..., description="The raw Python code string containing the strategy function.", max_length=10000)
     strategy_function_name: str = Field("custom_strategy", description="Must exactly match the name of the function inside the strategy_code.")
     requested_stats: Optional[List[str]] = Field(None, description="Exact names of the statistics to evaluate. Hit GET /api/options to see available ones. 'None' means all.")
-    custom_stats_code: Optional[str] = Field(None, description="Raw Python code containing custom statistical format functions def stat(df, init_cap).")
+    custom_stats_code: Optional[str] = Field(None, description="Raw Python code containing custom statistical format functions def stat(df, init_cap).", max_length=10000)
     custom_stats_names: Optional[List[str]] = Field(None, description="List of function names from 'custom_stats_code' to evaluate.")
     sort_trades_by: Optional[str] = Field("date", description="How to order output trades: 'date', 'pnl_high_to_low', or 'pnl_low_to_high'.", pattern="^(date|pnl_high_to_low|pnl_low_to_high)$")
     top_trades: Optional[int] = Field(None, description="Limit the total number of trades returned. 'None' means all trades.", ge=1)
@@ -155,7 +155,7 @@ def run_custom_backtest(req: BacktestRequest):
     # 1. Compile and extract the dynamic strategy function
     local_env = {}
     try:
-        exec(req.strategy_code, {}, local_env)
+        exec(req.strategy_code, local_env)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error compiling strategy code: {str(e)}")
     
@@ -184,7 +184,7 @@ def run_custom_backtest(req: BacktestRequest):
     if req.custom_stats_code and req.custom_stats_names:
         stats_env = {}
         try:
-            exec(req.custom_stats_code, {}, stats_env)
+            exec(req.custom_stats_code, stats_env)
             for s_name in req.custom_stats_names:
                 if s_name in stats_env and callable(stats_env[s_name]):
                     custom_stats_dict[s_name] = stats_env[s_name]
@@ -204,6 +204,11 @@ def run_custom_backtest(req: BacktestRequest):
             custom_stats=custom_stats_dict if custom_stats_dict else None
         )
     except Exception as e:
+        if custom_stats_dict:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Error generating report while executing custom stats: {str(e)}"
+            )
         raise HTTPException(status_code=500, detail=f"Error generating report: {str(e)}")
     
     # 4. Format Trade History output
