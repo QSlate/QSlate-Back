@@ -12,7 +12,12 @@ from fastapi.middleware.cors import CORSMiddleware
 import backtest
 from models import BacktestRequest
 
-app = FastAPI(title="Backtest API Service")
+app = FastAPI(
+    title="Backtest API Service",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
+)
 
 RUNNER_SERVICE_URL = os.getenv("RUNNER_SERVICE_URL", "http://localhost:8090/backtest/run")
 RUNNER_TIMEOUT_SECONDS = float(os.getenv("RUNNER_TIMEOUT_SECONDS", "600"))
