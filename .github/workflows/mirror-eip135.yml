@@ -7,22 +7,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: webfactory/ssh-agent@v0.9.1
         with:
           ssh-private-key: ${{ secrets.EIP135_DEPLOY_KEY }}
+      - name: Install git-subtree
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq git-subtree
       - run: |
           set -euo pipefail
           mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
-          git clone --depth 1 git@github.com:EpitechPGE3-2025/G-EIP-601-ALL-6-1-eip-135.git /tmp/eip135
-          rsync -a --delete --exclude='.git' ./ "/tmp/eip135/QSlate-Back/"
+          git clone git@github.com:EpitechPGE3-2025/G-EIP-601-ALL-6-1-eip-135.git /tmp/eip135
           cd /tmp/eip135
           git config user.name "QSlate Mirror Bot"
           git config user.email "mirror@qslate.local"
-          git add "QSlate-Back"
-          git diff --cached --quiet && exit 0
-          git commit -m "sync: QSlate-Back @ ${GITHUB_SHA::7}"
           for i in 1 2 3 4 5; do
-            git push origin main && exit 0
-            git fetch origin main && git rebase origin/main
+            git subtree pull --prefix=QSlate-Back "$GITHUB_WORKSPACE" main -m "sync: QSlate-Back @ ${GITHUB_SHA::7}" && git push origin main && exit 0
+            git fetch origin main && git reset --hard origin/main
           done
           exit 1
