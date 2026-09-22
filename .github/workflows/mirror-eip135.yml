@@ -12,8 +12,6 @@ jobs:
       - uses: webfactory/ssh-agent@v0.9.1
         with:
           ssh-private-key: ${{ secrets.EIP135_DEPLOY_KEY }}
-      - name: Install git-subtree
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq git-subtree
       - run: |
           set -euo pipefail
           mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
