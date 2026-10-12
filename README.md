@@ -1,5 +1,116 @@
 # QSlate-Back
-QSlate backend infrastructure. Built in Go , it orchestrates secure, ephemeral Docker containers to execute Python trading scripts. Leveraging TimescaleDB for time-series data , it powers a high-fidelity backtesting engine , an AI-assisted strategy builder , and live market execution.
+Backend de recherche quantitative QSlate. Le socle Go contient un gateway et
+un premier microservice d'authentification. Le moteur de backtest existant est
+en Python/FastAPI ; l'orchestration isolée, TimescaleDB et le Builder sont les
+prochaines étapes décrites dans [l'analyse d'architecture](docs/architecture.md).
+
+## Socle microservices Go
+
+```text
+gateway/                  routage configurable et vérification JWT
+services/auth/            compte, login, profil et migrations PostgreSQL
+internal/platform/        configuration, HTTP, JWT et connexion DB techniques
+templates/microservice/   service neutre, exécutable et générable
+cmd/                      initialisation locale et générateur
+deploy/Dockerfile         image indépendante par binaire
+docs/                     analyse QSlate/AREA et contrat OpenAPI
+```
+
+Un module Go commun simplifie le travail dans ce monorepo ; chaque service
+possède son binaire, son `internal`, sa base et son image indépendants.
+
+### Démarrer
+
+Go 1.26+, Docker Compose et Make :
+
+```bash
+make up
+curl http://localhost:8080/readyz
+```
+
+`make up` crée une fois `.env` (mot de passe PostgreSQL aléatoire) et
+`.secrets/` (clés Ed25519), puis démarre les services. Les fichiers existants
+sont conservés. Seul le gateway est publié sur localhost ; auth et PostgreSQL
+restent sur des réseaux internes. Les credentials sont ignorés par Git/Docker.
+
+```bash
+curl -X POST http://localhost:8080/api/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"trader@example.com","username":"trader","password":"correct-horse-battery-staple"}'
+
+curl -X POST http://localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"identifier":"trader","password":"correct-horse-battery-staple"}'
+
+curl http://localhost:8080/api/auth/me \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+Les réponses login/register contiennent `user`, `access_token`,
+`token_type` et `expires_in` (900 secondes par défaut). Les mots de passe
+sont hachés avec bcrypt ; le hash n'est jamais sérialisé. Email et username
+sont normalisés en minuscules. Les JWT imposent signature Ed25519, expiration,
+issuer et audience. Le gateway et auth vérifient le Bearer du profil.
+Les erreurs applicatives renvoient `{"error":{"code":"...","message":"..."}}`.
+
+Les migrations SQL sont embarquées dans auth et appliquées au démarrage sous
+verrou transactionnel : une migration déjà appliquée ne doit pas être modifiée.
+Ajouter un nouveau fichier numéroté pour faire évoluer une base existante.
+
+Le contrat API est dans [auth.openapi.yaml](docs/auth.openapi.yaml).
+Le frontend n'est pas encore branché et le backtest Python n'est pas routé
+par ce nouveau gateway. Le service initial n'inclut pas refresh/logout,
+révocation immédiate, MFA ou OAuth.
+
+### Développer et créer un service
+
+```bash
+make test                       # tests avec race detector
+make vet
+make build                      # bin/gateway et bin/auth
+API_BASE_URL=http://localhost:8080 make test-e2e  # stack démarrée
+make new-service NAME=workspace
+go build ./services/workspace/...
+make logs
+make down                       # arrêt, données PostgreSQL conservées
+```
+
+Suivre [le template](templates/microservice/README.md) pour ajouter un domaine,
+ses cas d'utilisation, ses adaptateurs, son contrat et ses routes publiques.
+Les handlers n'accèdent pas directement au SQL ; les services ne partagent
+ni repositories ni entités métier.
+
+Tests PostgreSQL, sur une base de développement accessible :
+
+```bash
+TEST_DATABASE_URL='postgres://user:password@localhost:5432/database?sslmode=disable' make test-integration
+```
+
+Chaque test crée et supprime uniquement son schéma `auth_test_*`. La CI fournit
+sa propre base. Pour lancer les binaires hors Docker, injecter `DATABASE_URL`
+pour auth et `AUTH_SERVICE_URL=http://127.0.0.1:8081` pour le gateway ; `.env`
+n'est pas chargé automatiquement par les binaires Go.
+
+### Configuration
+
+| Variable | Composant | Défaut / contrainte |
+| --- | --- | --- |
+| `HTTP_ADDR` | Gateway / auth | `:8080` / `:8081` hors Docker |
+| `AUTH_SERVICE_URL` | Gateway, substitution des routes | Obligatoire pour la configuration livrée |
+| `ROUTES_FILE` | Gateway | `gateway/config/routes.json` |
+| `ALLOWED_ORIGINS` | Gateway | `http://localhost:3000`, liste séparée par virgules |
+| `DATABASE_URL` | Auth | Obligatoire ; choisir les paramètres TLS pour l'environnement |
+| `JWT_PRIVATE_KEY_FILE` | Auth uniquement | `.secrets/auth-private.pem` |
+| `JWT_PUBLIC_KEY_FILE` | Gateway | `.secrets/auth-public.pem` |
+| `JWT_ISSUER` / `JWT_AUDIENCE` | Les deux | `qslate-auth` / `qslate-api` |
+| `ACCESS_TOKEN_TTL` | Auth | `15m`, entre `1m` et `1h` |
+| `BCRYPT_COST` | Auth | `12`, entre `10` et `14` |
+
+Les clés de développement sont montées avec l'UID/GID local généré dans `.env`.
+En déploiement, injecter les fichiers de clés avec les permissions de
+l'utilisateur du conteneur et gérer leur cycle de vie via le secret manager.
+
+## Backend de backtest Python existant
 
 The backtest flow is split into two services:
 
