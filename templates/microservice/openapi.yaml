@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: microservice-template
+  version: 1.0.0
+  description: Replace or extend this contract with the service's business endpoints.
+servers:
+  - url: http://localhost:8082
+security: []
+paths:
+  /healthz:
+    get:
+      operationId: liveness
+      summary: Process liveness
+      responses:
+        '200':
+          description: Alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: {type: string, enum: [ok]}
+        '405': {description: Unsupported HTTP method}
+  /readyz:
+    get:
+      operationId: readiness
+      summary: Service dependencies readiness
+      responses:
+        '200': {description: Ready}
+        '405': {description: Unsupported HTTP method}
+        '503': {description: Dependencies unavailable}
