@@ -1,0 +1,5 @@
+[
+  {"method":"POST", "path":"/api/auth/register", "upstream":"${AUTH_SERVICE_URL}", "target_path":"/auth/register", "auth_required":false, "rate_limited":true},
+  {"method":"POST", "path":"/api/auth/login", "upstream":"${AUTH_SERVICE_URL}", "target_path":"/auth/login", "auth_required":false, "rate_limited":true},
+  {"method":"GET", "path":"/api/auth/me", "upstream":"${AUTH_SERVICE_URL}", "target_path":"/auth/me", "auth_required":true, "rate_limited":false}
+]
