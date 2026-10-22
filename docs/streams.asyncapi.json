@@ -1,0 +1,544 @@
+{
+  "asyncapi": "2.6.0",
+  "info": {
+    "title": "QSlate v1 streams",
+    "version": "1.0.0",
+    "description": "Proposed contracts for the two PDF WebSocket channels. Not implemented by the current runtime. Authenticate in the first frame within five seconds; no data is delivered before session and resource authorization. TLS is required in deployment. Access tokens are never sent in URL query strings."
+  },
+  "defaultContentType": "application/json",
+  "servers": {
+    "local": {
+      "url": "localhost:8080",
+      "protocol": "ws",
+      "description": "Development only; deployment uses wss."
+    }
+  },
+  "channels": {
+    "/qslate/v1/ws/backtests/{backtestId}/stream": {
+      "description": "Caller-owned run telemetry. Client authenticates, then optionally resumes with last_event_id. State snapshots are also available over REST.",
+      "parameters": {
+        "backtestId": {
+          "schema": {
+            "type": "string"
+          }
+        }
+      },
+      "publish": {
+        "operationId": "sendBacktestStreamCommand",
+        "message": {
+          "oneOf": [
+            {
+              "$ref": "#/components/messages/Authenticate"
+            },
+            {
+              "$ref": "#/components/messages/Resume"
+            },
+            {
+              "$ref": "#/components/messages/Ping"
+            }
+          ]
+        }
+      },
+      "subscribe": {
+        "operationId": "receiveBacktestStreamEvent",
+        "message": {
+          "oneOf": [
+            {
+              "$ref": "#/components/messages/Authenticated"
+            },
+            {
+              "$ref": "#/components/messages/BacktestStatus"
+            },
+            {
+              "$ref": "#/components/messages/BacktestLog"
+            },
+            {
+              "$ref": "#/components/messages/Gap"
+            },
+            {
+              "$ref": "#/components/messages/Error"
+            },
+            {
+              "$ref": "#/components/messages/Pong"
+            }
+          ]
+        }
+      }
+    },
+    "/qslate/v1/ws/data/ticks": {
+      "description": "Proposed complete path reconstructed from truncated PDF label. Subscribe/unsubscribe to at most 50 authorized symbols after authentication.",
+      "publish": {
+        "operationId": "sendTickStreamCommand",
+        "message": {
+          "oneOf": [
+            {
+              "$ref": "#/components/messages/Authenticate"
+            },
+            {
+              "$ref": "#/components/messages/Subscribe"
+            },
+            {
+              "$ref": "#/components/messages/Unsubscribe"
+            },
+            {
+              "$ref": "#/components/messages/Ping"
+            }
+          ]
+        }
+      },
+      "subscribe": {
+        "operationId": "receiveTickStreamEvent",
+        "message": {
+          "oneOf": [
+            {
+              "$ref": "#/components/messages/Authenticated"
+            },
+            {
+              "$ref": "#/components/messages/Tick"
+            },
+            {
+              "$ref": "#/components/messages/Gap"
+            },
+            {
+              "$ref": "#/components/messages/Error"
+            },
+            {
+              "$ref": "#/components/messages/Pong"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "components": {
+    "messages": {
+      "Authenticate": {
+        "name": "authenticate",
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "authenticate"
+              ]
+            },
+            "access_token": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "access_token"
+          ]
+        }
+      },
+      "Authenticated": {
+        "name": "authenticated",
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "authenticated"
+              ]
+            },
+            "expires_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "type",
+            "expires_at"
+          ]
+        }
+      },
+      "Resume": {
+        "name": "resume",
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "resume"
+              ]
+            },
+            "last_event_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "last_event_id"
+          ]
+        }
+      },
+      "Subscribe": {
+        "name": "subscribe",
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "subscribe"
+              ]
+            },
+            "symbols": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "maxItems": 50,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "type",
+            "symbols"
+          ]
+        }
+      },
+      "Unsubscribe": {
+        "name": "unsubscribe",
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "unsubscribe"
+              ]
+            },
+            "symbols": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "maxItems": 50,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "type",
+            "symbols"
+          ]
+        }
+      },
+      "Ping": {
+        "name": "ping",
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "ping"
+              ]
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      },
+      "Pong": {
+        "name": "pong",
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "pong"
+              ]
+            },
+            "time": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "type",
+            "time"
+          ]
+        }
+      },
+      "BacktestStatus": {
+        "name": "backtest.status.v1",
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "event_id": {
+              "type": "string"
+            },
+            "sequence": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "time": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "schema_version": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "backtest.status.v1"
+              ]
+            },
+            "backtest_id": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "running",
+                "completed",
+                "failed",
+                "cancelled"
+              ]
+            },
+            "progress": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "required": [
+            "event_id",
+            "sequence",
+            "time",
+            "schema_version",
+            "type",
+            "backtest_id",
+            "status",
+            "progress"
+          ]
+        }
+      },
+      "BacktestLog": {
+        "name": "backtest.log.v1",
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "event_id": {
+              "type": "string"
+            },
+            "sequence": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "time": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "schema_version": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "backtest.log.v1"
+              ]
+            },
+            "backtest_id": {
+              "type": "string"
+            },
+            "level": {
+              "type": "string",
+              "enum": [
+                "debug",
+                "info",
+                "warning",
+                "error"
+              ]
+            },
+            "message": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "event_id",
+            "sequence",
+            "time",
+            "schema_version",
+            "type",
+            "backtest_id",
+            "level",
+            "message"
+          ]
+        }
+      },
+      "Tick": {
+        "name": "market.tick.v1",
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "event_id": {
+              "type": "string"
+            },
+            "sequence": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "time": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "schema_version": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "market.tick.v1"
+              ]
+            },
+            "symbol": {
+              "type": "string"
+            },
+            "price": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)?$"
+            },
+            "quantity": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)?$"
+            }
+          },
+          "required": [
+            "event_id",
+            "sequence",
+            "time",
+            "schema_version",
+            "type",
+            "symbol",
+            "price",
+            "quantity"
+          ]
+        }
+      },
+      "Gap": {
+        "name": "stream.gap.v1",
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "event_id": {
+              "type": "string"
+            },
+            "sequence": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "time": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "schema_version": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "stream.gap.v1"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "slow_consumer",
+                "history_expired",
+                "upstream_gap"
+              ]
+            },
+            "resume_from": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "event_id",
+            "sequence",
+            "time",
+            "schema_version",
+            "type",
+            "reason",
+            "resume_from"
+          ]
+        }
+      },
+      "Error": {
+        "name": "stream.error.v1",
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "stream.error.v1"
+              ]
+            },
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "code",
+            "message"
+          ]
+        }
+      }
+    }
+  },
+  "x-operational-policy": {
+    "authentication_timeout_seconds": 5,
+    "heartbeat_seconds": 30,
+    "max_buffered_events": 1000,
+    "close_codes": {
+      "4401": "Missing, invalid, expired or revoked session",
+      "4403": "Resource subscription forbidden",
+      "4408": "Authentication timeout",
+      "4429": "Subscription or message quota exceeded"
+    },
+    "reconnect": "Exponential backoff with jitter; authenticate again. Resume available only within retained event history.",
+    "backpressure": "Emit stream.gap.v1, then resynchronize through REST. Never grow per-client buffers without a bound.",
+    "revocation": "The stream service must revalidate live sessions and resource ownership; gateway signature verification alone is insufficient."
+  }
+}

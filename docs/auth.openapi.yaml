@@ -1,141 +1,81 @@
-openapi: 3.0.3
-info:
-  title: QSlate Authentication API
-  version: 1.0.0
-  description: Initial identity service. Access tokens expire after 15 minutes by default.
-servers:
-  - url: http://localhost:8080
-security: []
-tags:
-  - name: auth
-    description: Account registration and authentication
-paths:
-  /api/auth/register:
-    post:
-      tags: [auth]
-      operationId: register
-      summary: Create an account and issue an access token
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [email, username, password]
-              properties:
-                email: {type: string, format: email, maxLength: 254}
-                username: {type: string, minLength: 3, maxLength: 32, description: 'Normalized to lowercase; letters, digits, underscores and hyphens.'}
-                password: {type: string, minLength: 12, maxLength: 72, description: Maximum 72 UTF-8 bytes (bcrypt limit).}
-      responses:
-        '201': {$ref: '#/components/responses/Session'}
-        '400': {$ref: '#/components/responses/Error'}
-        '409': {$ref: '#/components/responses/Error'}
-        '413': {$ref: '#/components/responses/Error'}
-        '415': {$ref: '#/components/responses/Error'}
-        '429': {$ref: '#/components/responses/Error'}
-        '500': {$ref: '#/components/responses/Error'}
-        '502': {$ref: '#/components/responses/Error'}
-        '504': {$ref: '#/components/responses/Error'}
-  /api/auth/login:
-    post:
-      tags: [auth]
-      operationId: login
-      summary: Authenticate using email or username
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [identifier, password]
-              properties:
-                identifier: {type: string, maxLength: 254}
-                password: {type: string, maxLength: 72}
-      responses:
-        '200': {$ref: '#/components/responses/Session'}
-        '400': {$ref: '#/components/responses/Error'}
-        '401': {$ref: '#/components/responses/Error'}
-        '413': {$ref: '#/components/responses/Error'}
-        '415': {$ref: '#/components/responses/Error'}
-        '429': {$ref: '#/components/responses/Error'}
-        '500': {$ref: '#/components/responses/Error'}
-        '502': {$ref: '#/components/responses/Error'}
-        '504': {$ref: '#/components/responses/Error'}
-  /api/auth/me:
-    get:
-      tags: [auth]
-      operationId: getCurrentUser
-      summary: Retrieve the authenticated account
-      security: [{bearerAuth: []}]
-      responses:
-        '200':
-          description: Current account
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [user]
-                properties:
-                  user: {$ref: '#/components/schemas/User'}
-        '401': {$ref: '#/components/responses/Error'}
-        '404': {$ref: '#/components/responses/Error'}
-        '500': {$ref: '#/components/responses/Error'}
-        '502': {$ref: '#/components/responses/Error'}
-        '504': {$ref: '#/components/responses/Error'}
-  /healthz:
-    get:
-      operationId: liveness
-      summary: Gateway process liveness
-      responses:
-        '200': {description: Process is alive}
-        '405': {description: Unsupported HTTP method}
-  /readyz:
-    get:
-      operationId: readiness
-      summary: Gateway and upstream readiness
-      responses:
-        '200': {description: Ready}
-        '405': {description: Unsupported HTTP method}
-        '503': {$ref: '#/components/responses/Error'}
-components:
-  securitySchemes:
-    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
-  responses:
-    Session:
-      description: Authenticated session
-      content:
-        application/json:
-          schema: {$ref: '#/components/schemas/Session'}
-    Error:
-      description: Request failed (code and message); 429 includes Retry-After seconds
-      content:
-        application/json:
-          schema:
-            type: object
-            required: [error]
-            properties:
-              error:
-                type: object
-                required: [code, message]
-                properties:
-                  code: {type: string}
-                  message: {type: string}
-  schemas:
-    User:
-      type: object
-      required: [id, email, username, created_at]
-      properties:
-        id: {type: integer, format: int64}
-        email: {type: string, format: email}
-        username: {type: string}
-        created_at: {type: string, format: date-time}
-    Session:
-      type: object
-      required: [user, access_token, token_type, expires_in]
-      properties:
-        user: {$ref: '#/components/schemas/User'}
-        access_token: {type: string}
-        token_type: {type: string, enum: [Bearer]}
-        expires_in: {type: integer, description: Token lifetime in seconds}
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "QSlate Auth and OAuth2 API",
+    "version": "1.0.0",
+    "description": "Executable Auth contract; references the canonical v1 OpenAPI document."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/qslate/v1/auth/register": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1register"
+    },
+    "/qslate/v1/auth/login": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1login"
+    },
+    "/qslate/v1/auth/logout": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1logout"
+    },
+    "/qslate/v1/auth/refresh": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1refresh"
+    },
+    "/qslate/v1/auth/forgot-password": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1forgot-password"
+    },
+    "/qslate/v1/auth/reset-password": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1reset-password"
+    },
+    "/qslate/v1/auth/verify-email": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1verify-email"
+    },
+    "/qslate/v1/users/me": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1users~1me"
+    },
+    "/qslate/v1/users/me/preferences": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1users~1me~1preferences"
+    },
+    "/qslate/v1/users/me/api-keys": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1users~1me~1api-keys"
+    },
+    "/qslate/v1/users/me/api-keys/{keyId}": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1users~1me~1api-keys~1{keyId}"
+    },
+    "/qslate/v1/auth/providers": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1providers"
+    },
+    "/qslate/v1/auth/oauth/{provider}/authorize": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1oauth~1{provider}~1authorize"
+    },
+    "/qslate/v1/auth/oauth/{provider}/callback": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1oauth~1{provider}~1callback"
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "refreshCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "qslate_refresh"
+      },
+      "runnerAPIKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    }
+  }
+}

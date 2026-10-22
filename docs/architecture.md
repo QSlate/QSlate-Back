@@ -73,17 +73,62 @@ flowchart LR
     Public[Clé publique Ed25519] --> Gateway
 ```
 
-Le gateway publie `/api/auth/register`, `/api/auth/login`, `/api/auth/me`.
-Les deux premières routes sont limitées à 10 appels par minute et IP,
-partagés entre login/register pour une instance de gateway. Le profil exige
-un JWT valide au gateway **et** au service. Aucun autre endpoint de service
-n'est routé implicitement. Les probes locales `/healthz` et `/readyz` ont
-des rôles distincts ; readiness du gateway vérifie les upstreams.
+Le gateway publie les 14 opérations Auth sous `/qslate/v1/auth` et
+`/qslate/v1/users/me`, plus les 3 routes OAuth2. Les opérations sensibles
+(login/register, actions email, création de clé, authorize/callback) partagent
+10 appels par minute et IP pour une instance de gateway. Les routes privées
+exigent un JWT valide au gateway **et** au service, ainsi qu'une session active
+en base Auth. Aucune route des autres domaines n'est publiée implicitement.
+Les probes `/healthz` et `/readyz` ont des rôles distincts ; readiness du
+gateway vérifie les upstreams.
 
-Compose publie uniquement `127.0.0.1:8080`. PostgreSQL n'a aucun port hôte et
+Compose publie le gateway sur `127.0.0.1:8080` et Mailpit, uniquement pour le
+développement, sur `127.0.0.1:8025`. PostgreSQL n'a aucun port hôte et
 se trouve sur un réseau accessible à auth, pas au gateway. La clé privée
 n'est montée que dans auth. Les services Go tournent avec un utilisateur
 non privilégié, un filesystem en lecture seule et sans capacités Linux.
+Auth dispose d'une sortie réseau pour les fournisseurs OAuth2 et SMTP.
+
+### Identité modulaire et OAuth2
+
+Le domaine et les cas d'utilisation ne connaissent aucun fournisseur. Les
+adaptateurs HTTP/OAuth2 aboutissent tous à la même émission de session :
+
+```text
+Login/register mot de passe ─┐
+                            ├─ Auth.session → JWT + cookie refresh → PostgreSQL Auth
+OAuth2 : config → adaptateur ┘
+```
+
+L'adaptateur charge `services/auth/config/providers.json` (ou
+`OAUTH_PROVIDERS_FILE`) : endpoints, scopes, mapping de claims, callback,
+paramètres et références aux variables d'environnement des secrets. Il n'y
+a pas de sélection codée par nom de fournisseur. Les secrets Compose sont
+injectés via `.env.oauth`, jamais inclus dans le JSON ni l'image.
+
+Authorization Code + PKCE S256, état lié au navigateur et au fournisseur,
+usage unique et expiration protègent le callback. Des URLs de callback
+distinctes sont imposées par fournisseur ; les requêtes token/userinfo
+n'acceptent aucune redirection HTTP. Le transport distant exige HTTPS.
+Ces choix s'appuient sur les [recommandations OAuth2 actuelles (RFC 9700)](https://www.rfc-editor.org/rfc/rfc9700.html).
+Cette intégration utilise userinfo, pas une validation complète d'ID tokens OIDC.
+L'association externe est `(provider, subject)` ; aucun compte n'est lié
+automatiquement à un autre sur la seule égalité d'email.
+
+Les refresh tokens sont opaques, hachés en base et tournants ; un rejeu
+révoque la famille. Logout/reset invalident les sessions concernées. Les
+services futurs devront vérifier l'état de session pour offrir la même
+révocation immédiate ; la signature JWT seule ne suffit pas.
+Les liens email à usage unique sont mis en outbox transactionnelle chiffrée
+et envoyés par l'adaptateur SMTP ; aucun appel SMTP dans le handler métier.
+L'outbox reste dans Auth pour cette tranche : un service Notifications pourra
+la consommer plus tard via un contrat de transport explicite.
+
+Les choix précis et limites se trouvent dans [contracts.md](contracts.md).
+Le contrat REST recense 95 opérations issues du PDF + 3 extensions OAuth2 ;
+seules les 17 opérations Auth/OAuth2 sont implémentées. Les autres domaines
+et les deux flux AsyncAPI restent planifiés ; les chemins tronqués du PDF
+et les payloads reconstruits sont identifiés comme propositions.
 
 Le frontend et l'API Python conservent leur configuration actuelle : cette
 tranche n'inclut pas encore leur intégration au gateway. Les conteneurs
@@ -113,8 +158,8 @@ flowchart TB
 
 | Service | Possède | Ne doit pas faire |
 | --- | --- | --- |
-| Auth | Comptes, mots de passe ; sessions/MFA à venir | Conserver clés de brokers ou stratégies |
-| Workspace | Projets, layouts, préférences, références de widgets | Transformer chaque widget UI en microservice |
+| Auth | Comptes, mots de passe, sessions, identités OAuth2, préférences de compte, clés API Runner ; MFA à venir | Conserver clés de brokers ou stratégies |
+| Workspace | Projets, layouts, préférences de workspace, références de widgets | Transformer chaque widget UI en microservice |
 | Strategy | Code/version, paramètres, droits d'accès | Exécuter le code utilisateur |
 | Market data | Catalogue, import, providers, OHLCV, versions des datasets | Orchestrer un backtest |
 | Lab | Admission/quota, lifecycle des runs, référence de stratégie/dataset, résultats | Bloquer une requête interactive pendant un calcul |
@@ -131,8 +176,8 @@ idempotence, cancellation et dead-letter. Les événements sont versionnés
 
 ## Prochaines tranches
 
-1. Brancher les formulaires du frontend, avec session côté serveur/BFF si l'on
-   choisit un cookie HttpOnly ; ajouter refresh/logout et récupération de compte.
+1. Brancher les formulaires du frontend, le cookie HttpOnly, les liens email
+   et le callback OAuth2 ; valider les chemins/payloads proposés avec le frontend.
 2. Extraire Workspace et Strategy, appliquer la propriété des ressources dans
    chaque service ; le JWT identifie une personne, il n'autorise pas toute donnée.
 3. Extraire Market data et Lab, figer stratégie/dataset par run.
@@ -140,8 +185,8 @@ idempotence, cancellation et dead-letter. Les événements sont versionnés
    quotas CPU/mémoire/temps, réseau contrôlé et séparation des secrets.
 5. Builder puis broker/paper/live seulement après cette frontière d'exécution.
 
-La première tranche ne fournit ni refresh token, révocation immédiate, OAuth,
-MFA, JWKS ni rotation sans interruption. Les access tokens durent 15 minutes.
+Le socle ne fournit pas encore MFA, liaison explicite de comptes, JWKS ni
+rotation sans interruption. Les access tokens durent 15 minutes par défaut.
 Les clés publiques sont injectées par fichier et partagées par déploiement.
 Le rate limiter est en mémoire : un stockage commun sera nécessaire si plusieurs
 gateways doivent partager les quotas. Un reverse proxy de production devra
