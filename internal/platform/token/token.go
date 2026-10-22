@@ -25,6 +25,11 @@ type Manager struct {
 	ttl              time.Duration
 }
 
+type Claims struct {
+	jwt.RegisteredClaims
+	SessionID string `json:"sid,omitempty"`
+}
+
 func NewSigner(path, issuer, audience string, ttl time.Duration) (*Manager, error) {
 	if issuer == "" || audience == "" || ttl <= 0 {
 		return nil, errors.New("issuer, audience and positive TTL required")
@@ -76,33 +81,44 @@ func readPEM(path string) ([]byte, error) {
 }
 
 func (m *Manager) Issue(id int64) (string, error) {
+	return m.IssueSession(id, "")
+}
+
+func (m *Manager) IssueSession(id int64, sessionID string) (string, error) {
 	if id <= 0 || len(m.private) != ed25519.PrivateKeySize || m.ttl <= 0 {
 		return "", errors.New("invalid signing configuration")
 	}
 	now := time.Now()
-	claims := jwt.RegisteredClaims{Issuer: m.issuer, Subject: strconv.FormatInt(id, 10), Audience: jwt.ClaimStrings{m.audience},
-		ExpiresAt: jwt.NewNumericDate(now.Add(m.ttl)), IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now)}
+	claims := Claims{RegisteredClaims: jwt.RegisteredClaims{Issuer: m.issuer, Subject: strconv.FormatInt(id, 10), Audience: jwt.ClaimStrings{m.audience},
+		ExpiresAt: jwt.NewNumericDate(now.Add(m.ttl)), IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now)}, SessionID: sessionID}
 	return jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims).SignedString(m.private)
 }
 
 func (m *Manager) Verify(raw string) (int64, error) {
-	claims := &jwt.RegisteredClaims{}
+	id, _, err := m.VerifySession(raw)
+	return id, err
+}
+
+func (m *Manager) VerifySession(raw string) (int64, string, error) {
+	claims := &Claims{}
 	parsed, err := jwt.ParseWithClaims(raw, claims, func(t *jwt.Token) (any, error) { return m.public, nil },
 		jwt.WithValidMethods([]string{"EdDSA"}), jwt.WithIssuer(m.issuer), jwt.WithAudience(m.audience), jwt.WithExpirationRequired(), jwt.WithIssuedAt())
 	if err != nil || parsed == nil || !parsed.Valid {
-		return 0, errors.New("invalid access token")
+		return 0, "", errors.New("invalid access token")
 	}
 	id, err := strconv.ParseInt(claims.Subject, 10, 64)
 	if err != nil || id <= 0 {
-		return 0, errors.New("invalid token subject")
+		return 0, "", errors.New("invalid token subject")
 	}
-	return id, nil
+	return id, claims.SessionID, nil
 }
 
 type Verifier interface{ Verify(string) (int64, error) }
 type subjectKey struct{}
+type sessionKey struct{}
 
-func Subject(ctx context.Context) int64 { id, _ := ctx.Value(subjectKey{}).(int64); return id }
+func Subject(ctx context.Context) int64    { id, _ := ctx.Value(subjectKey{}).(int64); return id }
+func SessionID(ctx context.Context) string { id, _ := ctx.Value(sessionKey{}).(string); return id }
 
 func Protect(verifier Verifier, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -111,12 +127,23 @@ func Protect(verifier Verifier, next http.Handler) http.Handler {
 			unauthorized(w)
 			return
 		}
-		id, err := verifier.Verify(parts[1])
+		var id int64
+		var sid string
+		var err error
+		if stateful, ok := verifier.(interface {
+			VerifySession(string) (int64, string, error)
+		}); ok {
+			id, sid, err = stateful.VerifySession(parts[1])
+		} else {
+			id, err = verifier.Verify(parts[1])
+		}
 		if err != nil {
 			unauthorized(w)
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), subjectKey{}, id)))
+		ctx := context.WithValue(r.Context(), subjectKey{}, id)
+		ctx = context.WithValue(ctx, sessionKey{}, sid)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
