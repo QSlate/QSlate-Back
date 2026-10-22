@@ -20,7 +20,28 @@ type Route struct {
 	RateLimited  bool   `json:"rate_limited"`
 }
 
-var pathPattern = regexp.MustCompile(`^/[a-zA-Z0-9/_-]+$`)
+var literalSegment = regexp.MustCompile(`^[a-zA-Z0-9_.~-]+$`)
+var parameterSegment = regexp.MustCompile(`^\{([a-zA-Z][a-zA-Z0-9_]*)\}$`)
+
+func Parameters(path string) ([]string, error) {
+	if !strings.HasPrefix(path, "/") || strings.HasSuffix(path, "/") {
+		return nil, fmt.Errorf("paths must be absolute and have no trailing slash")
+	}
+	names := []string{}
+	seen := map[string]bool{}
+	for _, segment := range strings.Split(path[1:], "/") {
+		if match := parameterSegment.FindStringSubmatch(segment); match != nil {
+			if seen[match[1]] {
+				return nil, fmt.Errorf("duplicate path parameter")
+			}
+			seen[match[1]] = true
+			names = append(names, match[1])
+		} else if !literalSegment.MatchString(segment) || segment == "." || segment == ".." {
+			return nil, fmt.Errorf("invalid path segment")
+		}
+	}
+	return names, nil
+}
 
 func LoadRoutes(path string) ([]Route, error) {
 	file, err := os.Open(path)
@@ -58,8 +79,21 @@ func LoadRoutes(path string) ([]Route, error) {
 }
 
 func Validate(route Route) error {
-	if !pathPattern.MatchString(route.Path) || !pathPattern.MatchString(route.TargetPath) {
-		return fmt.Errorf("route paths must be literal absolute paths")
+	source, err := Parameters(route.Path)
+	if err != nil {
+		return err
+	}
+	targetNames, err := Parameters(route.TargetPath)
+	if err != nil {
+		return err
+	}
+	if len(source) != len(targetNames) {
+		return fmt.Errorf("source and target must preserve path parameters")
+	}
+	for index := range source {
+		if source[index] != targetNames[index] {
+			return fmt.Errorf("source and target must preserve ordered path parameter names")
+		}
 	}
 	if route.Path == "/healthz" || route.Path == "/readyz" {
 		return fmt.Errorf("probe paths are reserved")

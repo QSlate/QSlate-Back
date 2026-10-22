@@ -45,7 +45,12 @@ func New(routes []config.Route, verifier token.Verifier, logger *slog.Logger) (h
 			Transport: transport,
 			Rewrite: func(request *httputil.ProxyRequest) {
 				request.SetURL(target)
-				request.Out.URL.Path = route.TargetPath
+				path := route.TargetPath
+				names, _ := config.Parameters(route.Path)
+				for _, name := range names {
+					path = strings.ReplaceAll(path, "{"+name+"}", request.In.PathValue(name))
+				}
+				request.Out.URL.Path = path
 				request.Out.URL.RawPath = ""
 				// Remove supplied identities and forwarding headers before setting trusted values.
 				for name := range request.Out.Header {
@@ -77,9 +82,13 @@ func New(routes []config.Route, verifier token.Verifier, logger *slog.Logger) (h
 		// Trailing slash patterns in ServeMux match subtrees; ensure only declared paths pass.
 		wrapped := handler
 		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != route.Path {
-				httpx.Error(w, 404, "route_not_found", "route not found")
-				return
+			names, _ := config.Parameters(route.Path)
+			for _, name := range names {
+				value := r.PathValue(name)
+				if value == "" || value == "." || value == ".." || strings.ContainsAny(value, "/\\\x00") {
+					httpx.Error(w, 400, "invalid_path_parameter", "invalid resource identifier")
+					return
+				}
 			}
 			if r.Method != route.Method {
 				w.Header().Set("Allow", route.Method)

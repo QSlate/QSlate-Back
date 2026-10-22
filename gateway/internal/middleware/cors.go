@@ -23,6 +23,7 @@ func CORS(origins string, next http.Handler) http.Handler {
 		}
 		if origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Expose-Headers", "X-Request-ID, Retry-After")
 		}
 		if r.Method == http.MethodOptions && origin != "" && r.Header.Get("Access-Control-Request-Method") != "" {
