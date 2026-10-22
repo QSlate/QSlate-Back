@@ -1,5 +1,19 @@
 [
-  {"method":"POST", "path":"/api/auth/register", "upstream":"${AUTH_SERVICE_URL}", "target_path":"/auth/register", "auth_required":false, "rate_limited":true},
-  {"method":"POST", "path":"/api/auth/login", "upstream":"${AUTH_SERVICE_URL}", "target_path":"/auth/login", "auth_required":false, "rate_limited":true},
-  {"method":"GET", "path":"/api/auth/me", "upstream":"${AUTH_SERVICE_URL}", "target_path":"/auth/me", "auth_required":true, "rate_limited":false}
+  {"method":"POST","path":"/qslate/v1/auth/register","upstream":"${AUTH_SERVICE_URL}","target_path":"/auth/register","auth_required":false,"rate_limited":true},
+  {"method":"POST","path":"/qslate/v1/auth/login","upstream":"${AUTH_SERVICE_URL}","target_path":"/auth/login","auth_required":false,"rate_limited":true},
+  {"method":"POST","path":"/qslate/v1/auth/logout","upstream":"${AUTH_SERVICE_URL}","target_path":"/auth/logout","auth_required":false,"rate_limited":false},
+  {"method":"POST","path":"/qslate/v1/auth/refresh","upstream":"${AUTH_SERVICE_URL}","target_path":"/auth/refresh","auth_required":false,"rate_limited":false},
+  {"method":"POST","path":"/qslate/v1/auth/forgot-password","upstream":"${AUTH_SERVICE_URL}","target_path":"/auth/forgot-password","auth_required":false,"rate_limited":true},
+  {"method":"POST","path":"/qslate/v1/auth/reset-password","upstream":"${AUTH_SERVICE_URL}","target_path":"/auth/reset-password","auth_required":false,"rate_limited":true},
+  {"method":"POST","path":"/qslate/v1/auth/verify-email","upstream":"${AUTH_SERVICE_URL}","target_path":"/auth/verify-email","auth_required":false,"rate_limited":true},
+  {"method":"GET","path":"/qslate/v1/users/me","upstream":"${AUTH_SERVICE_URL}","target_path":"/users/me","auth_required":true,"rate_limited":false},
+  {"method":"PATCH","path":"/qslate/v1/users/me","upstream":"${AUTH_SERVICE_URL}","target_path":"/users/me","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/users/me/preferences","upstream":"${AUTH_SERVICE_URL}","target_path":"/users/me/preferences","auth_required":true,"rate_limited":false},
+  {"method":"PATCH","path":"/qslate/v1/users/me/preferences","upstream":"${AUTH_SERVICE_URL}","target_path":"/users/me/preferences","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/users/me/api-keys","upstream":"${AUTH_SERVICE_URL}","target_path":"/users/me/api-keys","auth_required":true,"rate_limited":false},
+  {"method":"POST","path":"/qslate/v1/users/me/api-keys","upstream":"${AUTH_SERVICE_URL}","target_path":"/users/me/api-keys","auth_required":true,"rate_limited":true},
+  {"method":"DELETE","path":"/qslate/v1/users/me/api-keys/{keyId}","upstream":"${AUTH_SERVICE_URL}","target_path":"/users/me/api-keys/{keyId}","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/auth/providers","upstream":"${AUTH_SERVICE_URL}","target_path":"/auth/providers","auth_required":false,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/auth/oauth/{provider}/authorize","upstream":"${AUTH_SERVICE_URL}","target_path":"/auth/oauth/{provider}/authorize","auth_required":false,"rate_limited":true},
+  {"method":"GET","path":"/qslate/v1/auth/oauth/{provider}/callback","upstream":"${AUTH_SERVICE_URL}","target_path":"/auth/oauth/{provider}/callback","auth_required":false,"rate_limited":true}
 ]

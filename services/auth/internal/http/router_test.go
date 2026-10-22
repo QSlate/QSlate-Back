@@ -13,7 +13,11 @@ import (
 	"qslate/services/auth/internal/service"
 )
 
-type brokenUseCases struct{}
+type brokenUseCases struct{ UseCases }
+
+func (brokenUseCases) ValidateSession(context.Context, int64, string) error {
+	return domain.ErrCredentials
+}
 
 func (brokenUseCases) Register(context.Context, string, string, string) (service.Session, error) {
 	return service.Session{}, errors.New("private database diagnostic")
@@ -31,7 +35,7 @@ func (rejectingVerifier) Verify(string) (int64, error) { return 0, errors.New("i
 
 func TestInternalErrorsMaskedAndDirectAccessProtected(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := New(brokenUseCases{}, rejectingVerifier{}, func(context.Context) error { return errors.New("database offline") }, logger)
+	router := New(brokenUseCases{}, rejectingVerifier{}, func(context.Context) error { return errors.New("database offline") }, logger, Config{AllowedOrigins: []string{"http://localhost:3000"}})
 	request := httptest.NewRequest("POST", "/auth/login", strings.NewReader(`{"identifier":"alice","password":"password"}`))
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
@@ -39,7 +43,7 @@ func TestInternalErrorsMaskedAndDirectAccessProtected(t *testing.T) {
 	if response.Code != 500 || strings.Contains(response.Body.String(), "private database diagnostic") {
 		t.Fatal("internal error leaked")
 	}
-	request = httptest.NewRequest("GET", "/auth/me", nil)
+	request = httptest.NewRequest("GET", "/users/me", nil)
 	request.Header.Set("X-User-ID", "1")
 	response = httptest.NewRecorder()
 	router.ServeHTTP(response, request)

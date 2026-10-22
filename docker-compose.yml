@@ -33,6 +33,9 @@ services:
     restart: unless-stopped
 
   auth:
+    env_file:
+      - path: .env.oauth
+        required: false
     build:
       context: .
       dockerfile: deploy/Dockerfile
@@ -45,12 +48,21 @@ services:
       JWT_PRIVATE_KEY_FILE: /run/secrets/auth-private.pem
       ACCESS_TOKEN_TTL: 15m
       BCRYPT_COST: 12
+      REFRESH_TOKEN_TTL: 720h
+      COOKIE_SECURE: "false"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3000}
+      SMTP_ADDR: mailpit:1025
+      SMTP_TLS_MODE: plain
+      SMTP_FROM: noreply@qslate.local
+      OAUTH_PROVIDERS_FILE: /app/providers.json
     volumes:
       - ./.secrets/auth-private.pem:/run/secrets/auth-private.pem:ro,Z
+      - ./services/auth/config/providers.json:/app/providers.json:ro,Z
     depends_on:
       auth-db:
         condition: service_healthy
-    networks: [auth-api, auth-storage]
+    networks: [auth-api, auth-storage, auth-mail, auth-egress]
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -59,6 +71,14 @@ services:
       interval: 5s
       timeout: 3s
       retries: 15
+    restart: unless-stopped
+
+  # Development inbox only. Production uses an authenticated TLS SMTP transport.
+  mailpit:
+    image: axllent/mailpit:v1
+    ports:
+      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
+    networks: [edge, auth-mail]
     restart: unless-stopped
 
   auth-db:
@@ -83,6 +103,9 @@ networks:
     internal: true
   auth-storage:
     internal: true
+  auth-mail:
+    internal: true
+  auth-egress:
 
 volumes:
   auth-data:

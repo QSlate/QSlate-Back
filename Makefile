@@ -26,7 +26,7 @@ build:
 	go build -o bin/auth ./services/auth/cmd/auth
 
 fmt:
-	gofmt -w cmd internal gateway services templates
+	gofmt -w cmd internal gateway services templates tests
 
 vet:
 	go vet ./...

@@ -12,9 +12,21 @@ import (
 )
 
 type memoryRepository struct {
+	domain.Store
 	users   []domain.User
 	failure error
 }
+
+func (m *memoryRepository) CreateAccount(ctx context.Context, email, name, hash string, _ domain.Action) (domain.User, error) {
+	return m.Create(ctx, email, name, hash)
+}
+func (m *memoryRepository) CreateSession(ctx context.Context, _ domain.Session, _ string) error {
+	return ctx.Err()
+}
+
+type mailSealer struct{}
+
+func (mailSealer) Seal(string, string, string) ([]byte, error) { return []byte("encrypted-mail"), nil }
 
 func (m *memoryRepository) Create(ctx context.Context, email, name, hash string) (domain.User, error) {
 	if m.failure != nil {
@@ -54,11 +66,11 @@ func (m *memoryRepository) FindByID(ctx context.Context, id int64) (domain.User,
 
 type issuer struct{}
 
-func (issuer) Issue(int64) (string, error) { return "signed-token", nil }
+func (issuer) IssueSession(int64, string) (string, error) { return "signed-token", nil }
 
 func TestRegisterLoginAndConflicts(t *testing.T) {
 	repo := &memoryRepository{}
-	svc, err := New(repo, issuer{}, bcrypt.MinCost, 15*time.Minute)
+	svc, err := New(repo, issuer{}, mailSealer{}, Config{BcryptCost: bcrypt.MinCost, AccessTTL: 15 * time.Minute, RefreshTTL: 24 * time.Hour})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +108,7 @@ func TestRegisterLoginAndConflicts(t *testing.T) {
 }
 
 func TestRegisterValidationAndCancellation(t *testing.T) {
-	svc, err := New(&memoryRepository{}, issuer{}, bcrypt.MinCost, time.Minute)
+	svc, err := New(&memoryRepository{}, issuer{}, mailSealer{}, Config{BcryptCost: bcrypt.MinCost, AccessTTL: time.Minute, RefreshTTL: 24 * time.Hour})
 	if err != nil {
 		t.Fatal(err)
 	}

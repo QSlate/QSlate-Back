@@ -11,6 +11,8 @@ RUN apk add --no-cache ca-certificates && addgroup -S -g 10001 qslate && adduser
 WORKDIR /app
 COPY --from=build /out/service /app/service
 COPY gateway/config/routes.json /app/routes.json
+COPY services/auth/config/providers.json /app/providers.json
+ENV OAUTH_PROVIDERS_FILE=/app/providers.json
 USER 10001:10001
 EXPOSE 8080
 ENTRYPOINT ["/app/service"]
