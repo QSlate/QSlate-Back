@@ -72,7 +72,7 @@ func TestMigrationsAndRepository(t *testing.T) {
 	}
 	wg.Wait()
 	var applied int
-	if err := db.QueryRow(`SELECT count(*) FROM schema_migrations`).Scan(&applied); err != nil || applied != 1 {
+	if err := db.QueryRow(`SELECT count(*) FROM schema_migrations`).Scan(&applied); err != nil || applied != 3 {
 		t.Fatalf("migration count=%d err=%v", applied, err)
 	}
 	repo := New(db)
