@@ -52,7 +52,7 @@ func testRouter(t *testing.T, active *sessions) http.Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc, err := service.New(repository{}, cfg)
+	svc, err := service.New(repository{}, cfg, testCatalogue{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -76,6 +76,11 @@ func (s *Dashboards) Duplicate(ctx context.Context, owner int64, id string) (dom
 	if err != nil {
 		return domain.Dashboard{}, err
 	}
+	for _, widget := range source.Widgets {
+		if err := s.catalogue.Validate(ctx, owner, widget.WidgetID, widget.WidgetVersionID, true); err != nil {
+			return domain.Dashboard{}, err
+		}
+	}
 	// The repository returns an independent snapshot. All IDs are regenerated,
 	// including layout references; revision and timestamps start afresh on insert.
 	source.ID, err = newID()
@@ -108,6 +113,9 @@ func (s *Dashboards) AddWidget(ctx context.Context, owner int64, id, widgetID, v
 	if err != nil {
 		return domain.Widget{}, err
 	}
+	if err := s.catalogue.Validate(ctx, owner, widgetID, versionID, false); err != nil {
+		return domain.Widget{}, err
+	}
 	instanceID, err := newID()
 	if err != nil {
 		return domain.Widget{}, err
@@ -138,6 +146,23 @@ func (s *Dashboards) PatchWidget(ctx context.Context, owner int64, id, instanceI
 	config, err := configuration(raw, false)
 	if err != nil {
 		return domain.Widget{}, err
+	}
+	current, err := s.repo.Get(ctx, owner, id)
+	if err != nil {
+		return domain.Widget{}, err
+	}
+	found := false
+	for _, widget := range current.Widgets {
+		if widget.InstanceID == instanceID {
+			found = true
+			if err := s.catalogue.Validate(ctx, owner, widget.WidgetID, widget.WidgetVersionID, true); err != nil {
+				return domain.Widget{}, err
+			}
+			break
+		}
+	}
+	if !found {
+		return domain.Widget{}, domain.ErrNotFound
 	}
 	var result domain.Widget
 	_, err = s.repo.Mutate(ctx, owner, id, func(d *domain.Dashboard) error {

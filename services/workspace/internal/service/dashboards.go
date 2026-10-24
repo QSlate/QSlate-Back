@@ -15,18 +15,26 @@ import (
 )
 
 type Dashboards struct {
-	repo   domain.Repository
-	layout LayoutConfig
+	repo      domain.Repository
+	layout    LayoutConfig
+	catalogue Catalogue
 }
 
-func New(repo domain.Repository, cfg LayoutConfig) (*Dashboards, error) {
+type Catalogue interface {
+	Validate(context.Context, int64, string, string, bool) error
+}
+
+func New(repo domain.Repository, cfg LayoutConfig, catalogue Catalogue) (*Dashboards, error) {
 	if repo == nil {
 		return nil, errors.New("workspace repository required")
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	return &Dashboards{repo: repo, layout: cfg}, nil
+	if catalogue == nil {
+		return nil, errors.New("widget catalogue required")
+	}
+	return &Dashboards{repo: repo, layout: cfg, catalogue: catalogue}, nil
 }
 
 var idPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{43}$`)

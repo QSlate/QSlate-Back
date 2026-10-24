@@ -70,7 +70,7 @@ func TestWidgetsLayoutDuplicationAndConcurrentRevision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc, err := service.New(New(db), cfg)
+	svc, err := service.New(New(db), cfg, testCatalogue{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,13 +183,13 @@ func TestWidgetsLayoutDuplicationAndConcurrentRevision(t *testing.T) {
 	}
 	// A different config affects reset without losing widget configuration or IDs.
 	cfg.DefaultWidget.Width, cfg.DefaultWidget.Height = 3, 2
-	custom, _ := service.New(New(db), cfg)
+	custom, _ := service.New(New(db), cfg, testCatalogue{})
 	reset, err := custom.ResetLayout(ctx, 1, copy.ID)
 	if err != nil || reset.Revision != copy.Revision+1 || reset.Layout[0].X != 0 || reset.Layout[0].Y != 0 || reset.Layout[0].Width != 3 || reset.Layout[0].Height != 2 || !reflect.DeepEqual(reset.Widgets, copy.Widgets) {
 		t.Fatal("configurable reset failed")
 	}
 	// A new service/repository instance reads exactly the durable state.
-	fresh, _ := service.New(New(db), cfg)
+	fresh, _ := service.New(New(db), cfg, testCatalogue{})
 	stored, err := fresh.Get(ctx, 1, copy.ID)
 	if err != nil || !reflect.DeepEqual(stored, reset) {
 		t.Fatal("state not durable")
@@ -203,7 +203,7 @@ func TestWidgetsLayoutDuplicationAndConcurrentRevision(t *testing.T) {
 	}
 	// Capacity errors roll back the mutation, including its revision.
 	cfg.MaxWidgets = 1
-	limited, _ := service.New(New(db), cfg)
+	limited, _ := service.New(New(db), cfg, testCatalogue{})
 	if _, err := limited.AddWidget(ctx, 1, copy.ID, "first", "v1", nil); err != nil {
 		t.Fatal(err)
 	}
@@ -238,7 +238,7 @@ func TestDashboardPersistenceOwnershipAndPagination(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc, err := service.New(New(db), cfg)
+	svc, err := service.New(New(db), cfg, testCatalogue{})
 	if err != nil {
 		t.Fatal(err)
 	}
