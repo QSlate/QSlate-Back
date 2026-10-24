@@ -1,0 +1,41 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "QSlate Widgets API",
+    "version": "1.0.0",
+    "description": "Seven section-4 operations. Preview dispatch requires an external gVisor sandbox controller; no local source execution."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/qslate/v1/widgets/installed": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1widgets~1installed"
+    },
+    "/qslate/v1/widgets/custom": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1widgets~1custom"
+    },
+    "/qslate/v1/widgets/custom/{widgetId}": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1widgets~1custom~1{widgetId}"
+    },
+    "/qslate/v1/widgets/custom/{widgetId}/preview": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1widgets~1custom~1{widgetId}~1preview"
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
