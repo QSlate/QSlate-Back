@@ -1,0 +1,20 @@
+{
+  "providers": [
+    {
+      "id": "google",
+      "display_name": "Google",
+      "enabled": false,
+      "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
+      "token_url": "https://oauth2.googleapis.com/token",
+      "userinfo_url": "https://openidconnect.googleapis.com/v1/userinfo",
+      "redirect_url": "http://localhost:8080/qslate/v1/auth/oauth/google/callback",
+      "client_id_env": "GOOGLE_CLIENT_ID",
+      "client_secret_env": "GOOGLE_CLIENT_SECRET",
+      "token_auth_method": "client_secret_post",
+      "scopes": ["openid", "email", "profile"],
+      "claims": {"subject": "sub", "email": "email", "email_verified": "email_verified", "name": "name"},
+      "require_verified_email": true,
+      "auth_params": {"prompt": "select_account"}
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "QSlate Auth and OAuth2 API",
+    "version": "1.0.0",
+    "description": "Executable Auth contract; references the canonical v1 OpenAPI document."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/qslate/v1/auth/register": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1register"
+    },
+    "/qslate/v1/auth/login": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1login"
+    },
+    "/qslate/v1/auth/logout": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1logout"
+    },
+    "/qslate/v1/auth/refresh": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1refresh"
+    },
+    "/qslate/v1/auth/forgot-password": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1forgot-password"
+    },
+    "/qslate/v1/auth/reset-password": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1reset-password"
+    },
+    "/qslate/v1/auth/verify-email": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1verify-email"
+    },
+    "/qslate/v1/users/me": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1users~1me"
+    },
+    "/qslate/v1/users/me/preferences": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1users~1me~1preferences"
+    },
+    "/qslate/v1/users/me/api-keys": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1users~1me~1api-keys"
+    },
+    "/qslate/v1/users/me/api-keys/{keyId}": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1users~1me~1api-keys~1{keyId}"
+    },
+    "/qslate/v1/auth/providers": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1providers"
+    },
+    "/qslate/v1/auth/oauth/{provider}/authorize": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1oauth~1{provider}~1authorize"
+    },
+    "/qslate/v1/auth/oauth/{provider}/callback": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1auth~1oauth~1{provider}~1callback"
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "refreshCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "qslate_refresh"
+      },
+      "runnerAPIKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    }
+  }
+}
