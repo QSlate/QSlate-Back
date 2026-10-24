@@ -1,0 +1,6 @@
+{
+  "columns": 12,
+  "max_rows": 1000,
+  "max_widgets": 128,
+  "default_widget": { "width": 6, "height": 4 }
+}
