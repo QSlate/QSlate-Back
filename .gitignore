@@ -1,3 +1,6 @@
+# Local agent instructions (never commit)
+AGENTS.[mM][dD]
+
 __pycache__/
 .idea/
 <<<<<<< HEAD
