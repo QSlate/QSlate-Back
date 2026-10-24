@@ -12,7 +12,9 @@ WORKDIR /app
 COPY --from=build /out/service /app/service
 COPY gateway/config/routes.json /app/routes.json
 COPY services/auth/config/providers.json /app/providers.json
+COPY services/workspace/config/layout.json /app/layout.json
 ENV OAUTH_PROVIDERS_FILE=/app/providers.json
+ENV WORKSPACE_LAYOUT_FILE=/app/layout.json
 USER 10001:10001
 EXPOSE 8080
 ENTRYPOINT ["/app/service"]

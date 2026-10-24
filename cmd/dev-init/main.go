@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -60,8 +61,35 @@ func initialize() error {
 	} else if err != nil {
 		return err
 	}
-	fmt.Println("Development credentials ready (.env and .secrets; existing files preserved)")
+	if err := ensureWorkspaceCredential(".env"); err != nil {
+		return err
+	}
+	fmt.Println("Development credentials ready (.env and .secrets; existing values preserved)")
 	return nil
+}
+
+// Upgrade an existing development environment without rotating any credentials.
+func ensureWorkspaceCredential(path string) error {
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	for _, line := range strings.Split(string(contents), "\n") {
+		key, _, found := strings.Cut(strings.TrimPrefix(strings.TrimSpace(line), "export "), "=")
+		if found && strings.TrimSpace(key) == "WORKSPACE_DATABASE_PASSWORD" {
+			return nil
+		}
+	}
+	secret := make([]byte, 32)
+	if _, err = rand.Read(secret); err != nil {
+		return err
+	}
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	_, writeErr := fmt.Fprintf(file, "\nWORKSPACE_DATABASE_PASSWORD=%s\n", hex.EncodeToString(secret))
+	return errors.Join(writeErr, file.Close())
 }
 
 func create(path string, contents []byte, mode os.FileMode) error {

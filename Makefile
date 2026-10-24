@@ -10,13 +10,13 @@ down:
 	docker compose down
 
 logs:
-	docker compose logs -f gateway auth
+	docker compose logs -f gateway auth workspace
 
 test:
 	go test -race ./...
 
 test-integration:
-	go test -tags integration -count=1 ./services/auth/internal/repository
+	go test -race -tags integration -count=1 ./services/auth/internal/repository ./services/workspace/internal/repository
 
 test-e2e:
 	go test -tags e2e -count=1 ./tests/e2e
@@ -24,6 +24,7 @@ test-e2e:
 build:
 	go build -o bin/gateway ./gateway/cmd/gateway
 	go build -o bin/auth ./services/auth/cmd/auth
+	go build -o bin/workspace ./services/workspace/cmd/service
 
 fmt:
 	gofmt -w cmd internal gateway services templates tests
