@@ -118,6 +118,35 @@ func TestWorkspaceThroughGateway(t *testing.T) {
 	}
 	alice, email := register(a, "wsa")
 	bob, _ := register(b, "wsb")
+	type definition struct {
+		ID        string `json:"id"`
+		VersionID string `json:"version_id"`
+		Source    string `json:"source"`
+	}
+	widgetInput := map[string]any{"name": "Price chart", "language": "python", "source": "def render(data, parameters):\n    return data\n", "configuration": map[string]any{}}
+	a.call("GET", "/widgets/installed", "", nil, 401)
+	first := decodeWorkspace[definition](t, a.call("POST", "/widgets/custom", alice, widgetInput, 201))
+	secondDefinition := decodeWorkspace[definition](t, a.call("POST", "/widgets/custom", alice, map[string]string{"name": "Orders", "language": "rust", "source": "fn main() {}"}, 201))
+	definitionPath := "/widgets/custom/" + first.ID
+	b.call("GET", definitionPath, bob, nil, 404)
+	b.call("PUT", definitionPath, bob, widgetInput, 404)
+	b.call("DELETE", definitionPath, bob, nil, 404)
+	b.call("POST", definitionPath+"/preview", bob, map[string]string{"dataset_id": "sample"}, 404)
+	privateList := decodeWorkspace[struct {
+		Items []definition `json:"items"`
+	}](t, b.call("GET", "/widgets/custom", bob, nil, 200))
+	if len(privateList.Items) != 0 {
+		t.Fatal("widget definitions leaked between owners")
+	}
+	a.call("GET", definitionPath, alice, nil, 200)
+	a.call("GET", "/widgets/installed?limit=1", alice, nil, 200)
+	a.call("GET", "/widgets/custom?limit=1", alice, nil, 200)
+	a.call("POST", definitionPath+"/preview", alice, map[string]string{"dataset_id": "sample"}, 503) // no sandbox controller configured; never simulated execution
+	widgetInput["source"] = "def render(data, parameters):\n    return []\n"
+	newVersion := decodeWorkspace[definition](t, a.call("PUT", definitionPath, alice, widgetInput, 200))
+	if newVersion.VersionID == first.VersionID {
+		t.Fatal("widget update overwrote its immutable version")
+	}
 	a.call("GET", "/dashboards", "", nil, 401)
 	a.call("GET", "/dashboards", "forged", nil, 401)
 	a.call("POST", "/dashboards", alice, map[string]any{"title": "Lab", "owner_id": 999}, 400)
@@ -137,8 +166,10 @@ func TestWorkspaceThroughGateway(t *testing.T) {
 	if d.Revision != 2 || d.Description != "" {
 		t.Fatal("PUT must replace metadata")
 	}
-	w := decodeWorkspace[widgetInstance](t, a.call("POST", path+"/widgets", alice, map[string]any{"widget_id": "price-chart", "widget_version_id": "v1", "configuration": map[string]any{"symbol": "EURUSD"}}, 201))
-	a.call("POST", path+"/widgets", alice, map[string]string{"widget_id": "orders", "widget_version_id": "v2"}, 201)
+	a.call("POST", path+"/widgets", alice, map[string]string{"widget_id": first.ID, "widget_version_id": secondDefinition.VersionID}, 404)
+	b.call("POST", "/dashboards/"+other.ID+"/widgets", bob, map[string]string{"widget_id": first.ID, "widget_version_id": first.VersionID}, 404)
+	w := decodeWorkspace[widgetInstance](t, a.call("POST", path+"/widgets", alice, map[string]any{"widget_id": first.ID, "widget_version_id": first.VersionID, "configuration": map[string]any{"symbol": "EURUSD"}}, 201))
+	a.call("POST", path+"/widgets", alice, map[string]string{"widget_id": secondDefinition.ID, "widget_version_id": secondDefinition.VersionID}, 201)
 	d = decodeWorkspace[dashboard](t, a.call("GET", path, alice, nil, 200))
 	if d.Revision != 4 || len(d.Widgets) != 2 || len(d.Layout) != 2 {
 		t.Fatal("widget insertion not durable")
@@ -165,7 +196,7 @@ func TestWorkspaceThroughGateway(t *testing.T) {
 		t.Fatal("rejected grid modified state")
 	}
 	patched := decodeWorkspace[widgetInstance](t, a.call("PATCH", path+"/widgets/"+w.InstanceID, alice, map[string]any{"configuration": map[string]any{"symbol": "BTCUSD"}}, 200))
-	if patched.VersionID != "v1" || !bytes.Contains(patched.Configuration, []byte("BTCUSD")) {
+	if patched.VersionID != first.VersionID || !bytes.Contains(patched.Configuration, []byte("BTCUSD")) {
 		t.Fatal("widget patch failed")
 	}
 	copy := decodeWorkspace[dashboard](t, a.call("POST", path+"/duplicate", alice, nil, 201))
@@ -181,13 +212,19 @@ func TestWorkspaceThroughGateway(t *testing.T) {
 	}
 	a.call("DELETE", copyPath, alice, nil, 204)
 	a.call("GET", copyPath, alice, nil, 404)
+	a.call("DELETE", definitionPath, alice, nil, 204)
+	a.call("GET", definitionPath, alice, nil, 404)
+	a.call("POST", path+"/widgets", alice, map[string]string{"widget_id": first.ID, "widget_version_id": first.VersionID}, 404)
+	a.call("PATCH", path+"/widgets/"+w.InstanceID, alice, map[string]any{"configuration": map[string]any{}}, 200) // retained version on an existing instance
 	b.call("POST", "/auth/logout", "", nil, 204)
 	b.call("GET", "/dashboards/"+other.ID, bob, nil, 401)
+	b.call("GET", "/widgets/custom", bob, nil, 401)
 	a.call("GET", path, alice, nil, 200)
 	a.call("POST", "/auth/forgot-password", "", map[string]string{"email": email}, 202)
 	reset := resetTokenFromMailpit(t, email)
 	a.call("POST", "/auth/reset-password", "", map[string]string{"token": reset, "password": "a new correct horse battery staple"}, 204)
 	a.call("GET", path, alice, nil, 401)
+	a.call("GET", "/widgets/custom", alice, nil, 401)
 	a.call("POST", "/auth/refresh", "", nil, 401)
 }
 
