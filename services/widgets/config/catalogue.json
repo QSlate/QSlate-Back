@@ -1,0 +1,13 @@
+{
+  "max_source_bytes": 100000,
+  "max_configuration_bytes": 4096,
+  "max_body_bytes": 1048576,
+  "installed": [],
+  "preview": {
+    "enabled": false,
+    "endpoint_env": "WIDGET_PREVIEW_URL",
+    "token_env": "WIDGET_PREVIEW_TOKEN",
+    "timeout_seconds": 3,
+    "allow_insecure_http": false
+  }
+}
