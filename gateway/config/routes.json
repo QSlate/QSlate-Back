@@ -15,5 +15,16 @@
   {"method":"DELETE","path":"/qslate/v1/users/me/api-keys/{keyId}","upstream":"${AUTH_SERVICE_URL}","target_path":"/users/me/api-keys/{keyId}","auth_required":true,"rate_limited":false},
   {"method":"GET","path":"/qslate/v1/auth/providers","upstream":"${AUTH_SERVICE_URL}","target_path":"/auth/providers","auth_required":false,"rate_limited":false},
   {"method":"GET","path":"/qslate/v1/auth/oauth/{provider}/authorize","upstream":"${AUTH_SERVICE_URL}","target_path":"/auth/oauth/{provider}/authorize","auth_required":false,"rate_limited":true},
-  {"method":"GET","path":"/qslate/v1/auth/oauth/{provider}/callback","upstream":"${AUTH_SERVICE_URL}","target_path":"/auth/oauth/{provider}/callback","auth_required":false,"rate_limited":true}
+  {"method":"GET","path":"/qslate/v1/auth/oauth/{provider}/callback","upstream":"${AUTH_SERVICE_URL}","target_path":"/auth/oauth/{provider}/callback","auth_required":false,"rate_limited":true},
+  {"method":"GET","path":"/qslate/v1/dashboards","upstream":"${WORKSPACE_SERVICE_URL}","target_path":"/dashboards","auth_required":true,"rate_limited":false},
+  {"method":"POST","path":"/qslate/v1/dashboards","upstream":"${WORKSPACE_SERVICE_URL}","target_path":"/dashboards","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/dashboards/{dashboardId}","upstream":"${WORKSPACE_SERVICE_URL}","target_path":"/dashboards/{dashboardId}","auth_required":true,"rate_limited":false},
+  {"method":"PUT","path":"/qslate/v1/dashboards/{dashboardId}","upstream":"${WORKSPACE_SERVICE_URL}","target_path":"/dashboards/{dashboardId}","auth_required":true,"rate_limited":false},
+  {"method":"DELETE","path":"/qslate/v1/dashboards/{dashboardId}","upstream":"${WORKSPACE_SERVICE_URL}","target_path":"/dashboards/{dashboardId}","auth_required":true,"rate_limited":false},
+  {"method":"POST","path":"/qslate/v1/dashboards/{dashboardId}/duplicate","upstream":"${WORKSPACE_SERVICE_URL}","target_path":"/dashboards/{dashboardId}/duplicate","auth_required":true,"rate_limited":false},
+  {"method":"PUT","path":"/qslate/v1/dashboards/{dashboardId}/layout","upstream":"${WORKSPACE_SERVICE_URL}","target_path":"/dashboards/{dashboardId}/layout","auth_required":true,"rate_limited":false},
+  {"method":"POST","path":"/qslate/v1/dashboards/{dashboardId}/widgets","upstream":"${WORKSPACE_SERVICE_URL}","target_path":"/dashboards/{dashboardId}/widgets","auth_required":true,"rate_limited":false},
+  {"method":"PATCH","path":"/qslate/v1/dashboards/{dashboardId}/widgets/{instanceId}","upstream":"${WORKSPACE_SERVICE_URL}","target_path":"/dashboards/{dashboardId}/widgets/{instanceId}","auth_required":true,"rate_limited":false},
+  {"method":"DELETE","path":"/qslate/v1/dashboards/{dashboardId}/widgets/{instanceId}","upstream":"${WORKSPACE_SERVICE_URL}","target_path":"/dashboards/{dashboardId}/widgets/{instanceId}","auth_required":true,"rate_limited":false},
+  {"method":"POST","path":"/qslate/v1/dashboards/{dashboardId}/layout/reset","upstream":"${WORKSPACE_SERVICE_URL}","target_path":"/dashboards/{dashboardId}/layout/reset","auth_required":true,"rate_limited":false}
 ]

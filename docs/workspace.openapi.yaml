@@ -1,0 +1,50 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "QSlate Workspace API",
+    "version": "1.0.0",
+    "description": "All 11 section-3 operations; schemas and operations reference the canonical REST contract."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/qslate/v1/dashboards": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1dashboards"
+    },
+    "/qslate/v1/dashboards/{dashboardId}": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1dashboards~1{dashboardId}"
+    },
+    "/qslate/v1/dashboards/{dashboardId}/duplicate": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1dashboards~1{dashboardId}~1duplicate"
+    },
+    "/qslate/v1/dashboards/{dashboardId}/layout": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1dashboards~1{dashboardId}~1layout"
+    },
+    "/qslate/v1/dashboards/{dashboardId}/widgets": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1dashboards~1{dashboardId}~1widgets"
+    },
+    "/qslate/v1/dashboards/{dashboardId}/widgets/{instanceId}": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1dashboards~1{dashboardId}~1widgets~1{instanceId}"
+    },
+    "/qslate/v1/dashboards/{dashboardId}/layout/reset": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1dashboards~1{dashboardId}~1layout~1reset"
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
