@@ -1,6 +1,6 @@
 # QSlate-Back
 Backend de recherche quantitative QSlate. Le socle Go contient un gateway et
-les microservices Auth, Workspace et Widgets. Le moteur de backtest existant est
+les microservices Auth, Workspace, Widgets et Strategy. Le moteur de backtest existant est
 en Python/FastAPI ; l'orchestration isolée, TimescaleDB et le Builder sont les
 prochaines étapes décrites dans [l'analyse d'architecture](docs/architecture.md).
 
@@ -11,15 +11,29 @@ gateway/                  routage configurable et vérification JWT
 services/auth/            comptes, sessions, OAuth2, emails et clés API
 services/workspace/       dashboards privés, grille et instances de widgets
 services/widgets/         catalogue, versions immuables et admission de preview
-internal/platform/        configuration, HTTP, JWT et connexion DB techniques
+services/strategy/        code Python, historique, restauration et diagnostics IDE
+go.work                   workspace de développement, pas une dépendance de build
 templates/microservice/   service neutre, exécutable et générable
 cmd/                      initialisation locale et générateur
-deploy/Dockerfile         image indépendante par binaire
+*/Dockerfile              image construite depuis le seul dossier du composant
 docs/                     architecture, contrats OpenAPI et AsyncAPI
 ```
 
-Un module Go commun simplifie le travail dans ce monorepo ; chaque service
-possède son binaire, son `internal`, sa base et son image indépendants.
+Comme dans AREA, chaque service et le gateway possèdent leur `go.mod`, `go.sum`,
+`Dockerfile`, `Makefile` et configuration. Leur petit socle `internal/platform`
+est une copie locale, pas une bibliothèque racine partagée. Aucun import Go entre
+services ni `replace` vers un dossier voisin : chaque dossier peut être copié,
+testé et construit sans le monorepo, avec `GOWORK=off`.
+
+Le `go.work` facilite uniquement l'édition multi-module. Le module racine contient
+les outils et tests transverses. `make test` parcourt tous les modules : un simple
+`go test ./...` à la racine ne teste pas les modules enfants. Le Compose racine
+orchestre le développement ; chaque image n'embarque que son binaire et sa propre
+configuration. Les contrats documentaires restent regroupés dans `docs/`.
+
+Cette autonomie de construction ne supprime pas les dépendances fonctionnelles :
+Auth reste l'autorité des sessions, Workspace appelle Widgets par HTTP et Strategy
+appelle son analyseur. Aucune de ces relations ne partage de tables ni de code métier.
 
 ### Démarrer
 
@@ -32,7 +46,7 @@ curl http://localhost:8080/readyz
 
 `make up` crée une fois `.env` (mots de passe PostgreSQL indépendants) et
 `.secrets/` (clés Ed25519), puis démarre les services. Les fichiers existants
-sont conservés ; `make init` ajoute les mots de passe Workspace/Widgets manquants sans
+sont conservés ; `make init` ajoute les mots de passe Workspace/Widgets/Strategy manquants sans
 modifier les valeurs existantes. Le gateway est publié sur localhost:8080 et la
 boîte email de développement Mailpit sur localhost:8025 ; les services et leurs
 bases PostgreSQL n'ont pas de port
@@ -88,6 +102,13 @@ par défaut (503) : un contrôleur sandbox externe gVisor reste à fournir ; auc
 code utilisateur n'est exécuté dans l'API, ni présenté comme exécuté par les tests.
 Voir [Widgets](services/widgets/README.md) pour le contrat et les limites.
 
+La section 5 ajoute neuf opérations Strategy : CRUD privé, import `.py`, historique,
+restauration et diagnostics Python pour Monaco. Les sauvegardes/restaurations
+exigent la version courante (`base_version_id`, sinon 409). Les révisions sont
+immuables ; le lint compile le texte sans l'exécuter dans un analyseur Python
+3.13 séparé, limité en ressources et sans secrets ni accès DB. Ce n'est pas une
+autorisation de sécurité ou un moteur de backtest. Voir [Strategy](services/strategy/README.md).
+
 Voir [le contrat Auth](docs/auth.openapi.yaml), [le contrat REST complet](docs/qslate.openapi.json)
 et [le service Workspace](services/workspace/README.md), ainsi que
 [les conventions et contrats proposés](docs/contracts.md). Les autres domaines
@@ -115,10 +136,12 @@ nécessitant un protocole différent devront disposer d'un adaptateur dédié.
 ```bash
 make test                       # tests avec race detector
 make vet
-make build                      # bin/gateway, bin/auth, bin/workspace et bin/widgets
+make build                      # binaires dans le bin/ de chaque composant
+make test-standalone            # builds isolés hors du dépôt, sans go.work
+python3 -B -m unittest discover -s services/strategy/analyzer -p 'test_*.py'
 API_BASE_URL=http://localhost:8080 MAILPIT_URL=http://localhost:8025 make test-e2e
-make new-service NAME=strategy
-go build ./services/strategy/...
+make new-service NAME=market-data
+make -C services/market-data test build
 make logs
 make down                       # arrêt, données PostgreSQL conservées
 ```
@@ -128,6 +151,19 @@ ses cas d'utilisation, ses adaptateurs, son contrat et ses routes publiques.
 Les handlers n'accèdent pas directement au SQL ; les services ne partagent
 ni repositories ni entités métier.
 
+Exemple depuis le seul dossier d'un service :
+
+```bash
+cd services/strategy
+make test build                 # GOWORK=off et dépendances propres au service
+make docker-build               # contexte Docker limité à ce dossier
+```
+
+Les helpers techniques copiés restent sous la responsabilité du service. Une
+correction de sécurité doit être reportée explicitement dans les copies concernées
+et validée par les tests de chaque module ; modifier le template ne met pas à jour
+silencieusement les services existants.
+
 Tests PostgreSQL, sur une base de développement accessible :
 
 ```bash
@@ -135,33 +171,40 @@ TEST_DATABASE_URL='postgres://user:password@localhost:5432/database?sslmode=disa
 ```
 
 Chaque test crée et supprime uniquement son schéma `auth_test_*`, `workspace_test_*`
-ou `widgets_test_*`. La CI fournit
+ou `widgets_test_*`, `strategy_test_*`. La CI fournit
 sa propre base. Pour lancer les binaires hors Docker, injecter `DATABASE_URL`
 propre à chaque service, `AUTH_SERVICE_URL=http://127.0.0.1:8081` pour Workspace et
 le gateway, `WORKSPACE_SERVICE_URL=http://127.0.0.1:8082` pour le gateway et
-`WIDGETS_SERVICE_URL=http://127.0.0.1:8083` pour Workspace/gateway ; `.env`
-n'est pas chargé automatiquement par les binaires Go.
+`WIDGETS_SERVICE_URL=http://127.0.0.1:8083` pour Workspace/gateway et
+`STRATEGY_SERVICE_URL=http://127.0.0.1:8084` pour le gateway. Strategy vérifie aussi
+Auth et utilise `STRATEGY_ANALYZER_URL` pour le lint ; `.env`
+n'est pas chargé automatiquement par les binaires Go. Exécuter `make run` depuis
+le dossier du service, avec les variables exportées et les chemins des clés injectés.
+Les fichiers de configuration par défaut sont relatifs à ce dossier, pas à la racine.
 
 ### Configuration
 
 | Variable | Composant | Défaut / contrainte |
 | --- | --- | --- |
-| `HTTP_ADDR` | Gateway / auth / workspace / widgets | `:8080` / `:8081` / `:8082` / `:8083` hors Docker |
-| `AUTH_SERVICE_URL` | Gateway, Workspace et Widgets | Obligatoire pour les routes et la validation des sessions |
+| `HTTP_ADDR` | Gateway / auth / workspace / widgets / strategy | `:8080` / `:8081` / `:8082` / `:8083` / `:8084` hors Docker |
+| `AUTH_SERVICE_URL` | Gateway, Workspace, Widgets et Strategy | Obligatoire pour les routes et la validation des sessions |
+| `STRATEGY_SERVICE_URL` | Gateway | Obligatoire pour les neuf routes Strategy |
+| `STRATEGY_CONFIG_FILE` | Strategy | `config/strategy.json` depuis le service ; `/app/strategy.json` dans l'image |
+| `STRATEGY_ANALYZER_URL` | Strategy | Origine de l'analyseur ; HTTP explicitement autorisé pour le réseau interne local |
 | `WIDGETS_SERVICE_URL` | Gateway / Workspace | Obligatoire pour le catalogue |
-| `WIDGETS_CONFIG_FILE` | Widgets | `services/widgets/config/catalogue.json` ; `/app/catalogue.json` dans l'image |
+| `WIDGETS_CONFIG_FILE` | Widgets | `config/catalogue.json` depuis le service ; `/app/catalogue.json` dans l'image |
 | `WORKSPACE_SERVICE_URL` | Gateway | Obligatoire pour la configuration livrée |
-| `WORKSPACE_LAYOUT_FILE` | Workspace | `services/workspace/config/layout.json` ; `/app/layout.json` dans l'image |
-| `ROUTES_FILE` | Gateway | `gateway/config/routes.json` |
+| `WORKSPACE_LAYOUT_FILE` | Workspace | `config/layout.json` depuis le service ; `/app/layout.json` dans l'image |
+| `ROUTES_FILE` | Gateway | `config/routes.json` depuis le gateway |
 | `ALLOWED_ORIGINS` | Gateway / auth | `http://localhost:3000`, liste séparée par virgules |
-| `DATABASE_URL` | Auth / Workspace / Widgets | Une base propre à chaque service ; paramètres TLS adaptés à l'environnement |
+| `DATABASE_URL` | Auth / Workspace / Widgets / Strategy | Une base propre à chaque service ; paramètres TLS adaptés à l'environnement |
 | `JWT_PRIVATE_KEY_FILE` | Auth uniquement | `.secrets/auth-private.pem` |
-| `JWT_PUBLIC_KEY_FILE` | Gateway / Workspace / Widgets | `.secrets/auth-public.pem` |
+| `JWT_PUBLIC_KEY_FILE` | Gateway / Workspace / Widgets / Strategy | `.secrets/auth-public.pem` |
 | `JWT_ISSUER` / `JWT_AUDIENCE` | Tous | `qslate-auth` / `qslate-api` |
 | `ACCESS_TOKEN_TTL` | Auth | `15m`, entre `1m` et `1h` |
 | `REFRESH_TOKEN_TTL` | Auth | `720h`, supérieur à l'access token, maximum `2160h` |
 | `COOKIE_SECURE` | Auth | `true` ; `false` uniquement pour HTTP local dans Compose |
-| `OAUTH_PROVIDERS_FILE` | Auth | `services/auth/config/providers.json` ; `/app/providers.json` dans l'image |
+| `OAUTH_PROVIDERS_FILE` | Auth | `config/providers.json` depuis Auth ; `/app/providers.json` dans l'image |
 | `PUBLIC_APP_URL` | Auth | `http://localhost:3000`, base des liens email et callback frontend |
 | `SMTP_ADDR` / `SMTP_FROM` | Auth | `localhost:1025` / `noreply@qslate.local` ; Mailpit dans Compose |
 | `SMTP_TLS_MODE` | Auth | `starttls` ; `tls` ou `plain` (Mailpit local) |
