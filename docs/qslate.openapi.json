@@ -2482,7 +2482,7 @@
           "strategy"
         ],
         "x-owner": "strategy",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "pdf-visible",
         "responses": {
           "200": {
@@ -2490,7 +2490,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Page"
+                  "$ref": "#/components/schemas/StrategyPage"
                 }
               }
             }
@@ -2518,6 +2518,9 @@
           },
           "502": {
             "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
           },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
@@ -2550,7 +2553,7 @@
           "strategy"
         ],
         "x-owner": "strategy",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "pdf-visible",
         "responses": {
           "201": {
@@ -2593,6 +2596,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -2617,7 +2623,7 @@
           "strategy"
         ],
         "x-owner": "strategy",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "200": {
@@ -2654,6 +2660,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -2665,8 +2674,9 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 128
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "minLength": 43,
+              "maxLength": 43
             }
           }
         ]
@@ -2678,7 +2688,7 @@
           "strategy"
         ],
         "x-owner": "strategy",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "200": {
@@ -2721,6 +2731,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -2732,8 +2745,9 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 128
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "minLength": 43,
+              "maxLength": 43
             }
           }
         ],
@@ -2742,20 +2756,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/StrategyInput"
+                "$ref": "#/components/schemas/StrategySaveInput"
               }
             }
           }
-        }
+        },
+        "description": "Insert an immutable revision. base_version_id must match current; stale writes return 409 without partial changes."
       },
       "delete": {
         "operationId": "strategy_DELETE_strategies_strategyId",
-        "summary": "Delete strategy metadata",
+        "summary": "Archive strategy and retain immutable history",
         "tags": [
           "strategy"
         ],
         "x-owner": "strategy",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "204": {
@@ -2785,6 +2800,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -2796,11 +2814,13 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 128
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "minLength": 43,
+              "maxLength": 43
             }
           }
-        ]
+        ],
+        "description": "Soft archive hides strategy and history from public operations. Retention is not a GDPR erasure workflow."
       }
     },
     "/qslate/v1/strategies/import": {
@@ -2811,7 +2831,7 @@
           "strategy"
         ],
         "x-owner": "strategy",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "201": {
@@ -2848,6 +2868,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -2866,7 +2889,8 @@
                   },
                   "name": {
                     "type": "string",
-                    "maxLength": 150
+                    "maxLength": 150,
+                    "minLength": 1
                   }
                 },
                 "required": [
@@ -2877,7 +2901,7 @@
             }
           }
         },
-        "description": "UTF-8 .py source, maximum 100 KiB. Static validation only; no execution."
+        "description": "Exactly one name and one file part. UTF-8 .py source, at most 100000 bytes, optional BOM removed, filename must be a basename. No temporary upload files or execution; draft syntax accepted, lint separately."
       }
     },
     "/qslate/v1/strategies/{strategyId}/versions": {
@@ -2888,7 +2912,7 @@
           "strategy"
         ],
         "x-owner": "strategy",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "200": {
@@ -2896,7 +2920,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Page"
+                  "$ref": "#/components/schemas/StrategyVersionPage"
                 }
               }
             }
@@ -2925,6 +2949,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -2936,8 +2963,9 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 128
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "minLength": 43,
+              "maxLength": 43
             }
           },
           {
@@ -2946,18 +2974,20 @@
             "schema": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 1000,
-              "default": 100
+              "maximum": 20,
+              "default": 10
             }
           },
           {
             "name": "cursor",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
             }
           }
-        ]
+        ],
+        "description": "Full owner-private snapshots ordered by descending revision; default 10, maximum 20 items."
       }
     },
     "/qslate/v1/strategies/{strategyId}/restore": {
@@ -2968,7 +2998,7 @@
           "strategy"
         ],
         "x-owner": "strategy",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "200": {
@@ -3011,6 +3041,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -3022,8 +3055,9 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 128
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "minLength": 43,
+              "maxLength": 43
             }
           }
         ],
@@ -3032,11 +3066,12 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VersionInput"
+                "$ref": "#/components/schemas/StrategyRestoreInput"
               }
             }
           }
-        }
+        },
+        "description": "Copy the owned snapshot into a new revision, restoring name, source and parameters; base_version_id must match current. Old snapshots are unchanged."
       }
     },
     "/qslate/v1/strategies/lint": {
@@ -3047,7 +3082,7 @@
           "strategy"
         ],
         "x-owner": "strategy",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "200": {
@@ -3090,6 +3125,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -3103,7 +3141,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Compile text only in the shipped resource-limited Python 3.13 analyzer; never execute resulting code. Syntax/scope diagnostics for Monaco, not type/style lint or security approval. Analyzer failure returns 503."
       }
     },
     "/qslate/v1/backtests/run": {
@@ -7998,26 +8037,212 @@
           "dataset_id"
         ]
       },
+      "StrategySaveInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 150,
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 100000,
+            "minLength": 1,
+            "x-max-utf8-bytes": 100000,
+            "description": "UTF-8 Python draft, at most 100000 bytes. Lint checks syntax separately."
+          },
+          "parameters": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Optional JSON object, at most 4096 UTF-8 bytes. Omission resets to {}; null is invalid."
+          },
+          "base_version_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "minLength": 43,
+            "maxLength": 43
+          }
+        },
+        "required": [
+          "name",
+          "source",
+          "base_version_id"
+        ]
+      },
+      "StrategyRestoreInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "base_version_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "minLength": 43,
+            "maxLength": 43
+          }
+        },
+        "required": [
+          "version_id",
+          "base_version_id"
+        ]
+      },
+      "StrategySummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "version_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "version_id",
+          "revision",
+          "name",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "StrategyPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StrategySummary"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "StrategyVersion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 150,
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 100000,
+            "minLength": 1,
+            "x-max-utf8-bytes": 100000,
+            "description": "UTF-8 Python draft, at most 100000 bytes. Lint checks syntax separately."
+          },
+          "parameters": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Optional JSON object, at most 4096 UTF-8 bytes. Omission resets to {}; null is invalid."
+          },
+          "restored_from": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "version_id",
+          "revision",
+          "name",
+          "source",
+          "parameters",
+          "created_at"
+        ]
+      },
+      "StrategyVersionPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StrategyVersion"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
       "StrategyInput": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string",
-            "maxLength": 150
+            "maxLength": 150,
+            "minLength": 1
           },
           "source": {
             "type": "string",
-            "maxLength": 100000
+            "maxLength": 100000,
+            "minLength": 1,
+            "x-max-utf8-bytes": 100000,
+            "description": "UTF-8 Python draft, at most 100000 bytes. Lint checks syntax separately."
           },
           "parameters": {
             "type": "object",
-            "additionalProperties": true
-          },
-          "base_version_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
+            "additionalProperties": true,
+            "description": "Optional JSON object, at most 4096 UTF-8 bytes. Omission resets to {}; null is invalid."
           }
         },
         "required": [
@@ -8031,13 +8256,15 @@
         "properties": {
           "id": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 128
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "minLength": 43,
+            "maxLength": 43
           },
           "version_id": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 128
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "minLength": 43,
+            "maxLength": 43
           },
           "name": {
             "type": "string"
@@ -8052,13 +8279,26 @@
           "created_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "required": [
           "id",
           "version_id",
+          "revision",
           "name",
-          "source"
+          "source",
+          "parameters",
+          "created_at",
+          "updated_at"
         ]
       },
       "VersionInput": {
@@ -8081,7 +8321,8 @@
         "properties": {
           "source": {
             "type": "string",
-            "maxLength": 100000
+            "maxLength": 100000,
+            "x-max-utf8-bytes": 100000
           },
           "language": {
             "type": "string",
@@ -8093,7 +8334,8 @@
         },
         "required": [
           "source"
-        ]
+        ],
+        "description": "May be empty while editing; syntax checking is not a security allowlist."
       },
       "Diagnostics": {
         "type": "object",
@@ -8126,9 +8368,21 @@
                 },
                 "message": {
                   "type": "string"
+                },
+                "end_line": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "end_column": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               },
               "required": [
+                "line",
+                "column",
+                "end_line",
+                "end_column",
                 "severity",
                 "message"
               ]
@@ -8138,7 +8392,8 @@
         "required": [
           "valid",
           "diagnostics"
-        ]
+        ],
+        "description": "1-based lines, UTF-16 columns for Monaco. Syntax/scope errors only, not undefined names, style or execution safety."
       },
       "RunInput": {
         "type": "object",
@@ -9185,6 +9440,14 @@
             "schema": {
               "$ref": "#/components/schemas/Error"
             }
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "A required service dependency is unavailable; no successful operation is simulated",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
           }
         }
       },

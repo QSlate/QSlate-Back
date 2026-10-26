@@ -14,7 +14,7 @@ down:
 	docker compose down
 
 logs:
-	docker compose logs -f gateway auth workspace widgets
+	docker compose logs -f gateway auth workspace widgets strategy strategy-analyzer
 
 test:
 	@set -e; for qslate_module in $(MODULES); do \
