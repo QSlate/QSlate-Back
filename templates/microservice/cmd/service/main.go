@@ -4,9 +4,9 @@ import (
 	"log/slog"
 	"os"
 
-	"qslate/internal/platform/config"
-	"qslate/internal/platform/httpx"
 	handler "qslate/templates/microservice/internal/http"
+	"qslate/templates/microservice/internal/platform/config"
+	"qslate/templates/microservice/internal/platform/httpx"
 )
 
 func main() {

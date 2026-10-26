@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"qslate/internal/platform/httpx"
+	"qslate/gateway/internal/platform/httpx"
 )
 
 func CORS(origins string, next http.Handler) http.Handler {

@@ -16,9 +16,9 @@ import (
 	"strings"
 	"time"
 
-	"qslate/internal/platform/httpx"
 	"qslate/services/auth/internal/domain"
 	authhttp "qslate/services/auth/internal/http"
+	"qslate/services/auth/internal/platform/httpx"
 	"qslate/services/auth/internal/service"
 )
 

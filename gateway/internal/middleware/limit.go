@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"qslate/internal/platform/httpx"
+	"qslate/gateway/internal/platform/httpx"
 )
 
 type bucket struct {

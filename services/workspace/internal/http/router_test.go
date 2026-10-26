@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"qslate/internal/platform/session"
 	"qslate/services/workspace/internal/domain"
+	"qslate/services/workspace/internal/platform/session"
 	"qslate/services/workspace/internal/service"
 )
 

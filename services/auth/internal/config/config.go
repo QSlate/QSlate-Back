@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	common "qslate/internal/platform/config"
+	common "qslate/services/auth/internal/platform/config"
 )
 
 type Config struct {
@@ -44,7 +44,7 @@ func Load() (Config, error) {
 		return cfg, fmt.Errorf("COOKIE_SECURE must be true or false")
 	}
 	cfg.AllowedOrigins = strings.Split(common.Env("ALLOWED_ORIGINS", "http://localhost:3000"), ",")
-	cfg.ProvidersFile = common.Env("OAUTH_PROVIDERS_FILE", "services/auth/config/providers.json")
+	cfg.ProvidersFile = common.Env("OAUTH_PROVIDERS_FILE", "config/providers.json")
 	cfg.AppURL = common.Env("PUBLIC_APP_URL", "http://localhost:3000")
 	cfg.SMTPAddress = common.Env("SMTP_ADDR", "localhost:1025")
 	cfg.SMTPFrom = common.Env("SMTP_FROM", "noreply@qslate.local")

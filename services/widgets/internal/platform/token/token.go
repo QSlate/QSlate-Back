@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"qslate/internal/platform/httpx"
+	"qslate/services/widgets/internal/platform/httpx"
 )
 
 type Manager struct {

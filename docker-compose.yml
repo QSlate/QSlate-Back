@@ -3,10 +3,7 @@ name: qslate-back
 services:
   gateway:
     build:
-      context: .
-      dockerfile: deploy/Dockerfile
-      args:
-        SERVICE_PATH: gateway/cmd/gateway
+      context: ./gateway
     user: "${QSLATE_UID:?Run make init}:${QSLATE_GID:?Run make init}"
     environment:
       HTTP_ADDR: :8080
@@ -41,10 +38,7 @@ services:
       - path: .env.oauth
         required: false
     build:
-      context: .
-      dockerfile: deploy/Dockerfile
-      args:
-        SERVICE_PATH: services/auth/cmd/auth
+      context: ./services/auth
     user: "${QSLATE_UID:?Run make init}:${QSLATE_GID:?Run make init}"
     environment:
       HTTP_ADDR: :8080
@@ -79,10 +73,7 @@ services:
 
   workspace:
     build:
-      context: .
-      dockerfile: deploy/Dockerfile
-      args:
-        SERVICE_PATH: services/workspace/cmd/service
+      context: ./services/workspace
     user: "${QSLATE_UID:?Run make init}:${QSLATE_GID:?Run make init}"
     environment:
       HTTP_ADDR: :8080
@@ -117,10 +108,7 @@ services:
       - path: .env.preview
         required: false
     build:
-      context: .
-      dockerfile: deploy/Dockerfile
-      args:
-        SERVICE_PATH: services/widgets/cmd/service
+      context: ./services/widgets
     user: "${QSLATE_UID:?Run make init}:${QSLATE_GID:?Run make init}"
     environment:
       HTTP_ADDR: :8080

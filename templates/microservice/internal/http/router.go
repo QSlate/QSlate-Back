@@ -3,7 +3,7 @@ package http
 import (
 	"net/http"
 
-	"qslate/internal/platform/httpx"
+	"qslate/templates/microservice/internal/platform/httpx"
 )
 
 func New() http.Handler {
