@@ -6,5 +6,6 @@ use (
 	./services/auth
 	./services/workspace
 	./services/widgets
+	./services/strategy
 	./templates/microservice
 )

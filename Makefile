@@ -20,6 +20,7 @@ test:
 	@set -e; for qslate_module in $(MODULES); do \
 		(cd "$$qslate_module" && GOWORK=off go test -mod=readonly -race ./...); \
 	done
+	python3 -B -m unittest discover -s services/strategy/analyzer -p 'test_*.py'
 
 test-standalone:
 	GOWORK=off go test -count=1 ./tests/architecture -run TestModulesBuildOutsideRepository
