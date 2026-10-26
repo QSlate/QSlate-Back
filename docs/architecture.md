@@ -69,8 +69,12 @@ flowchart LR
     Client[Client HTTP / futur frontend] --> Gateway[Gateway Go :8080]
     Gateway -->|Routes déclarées et JWT vérifié| Auth[Auth Go]
     Auth --> DB[(PostgreSQL auth)]
+    Gateway -->|11 routes privées| Workspace[Workspace Go]
+    Workspace --> WDB[(PostgreSQL Workspace)]
+    Workspace -->|Session active via API| Auth
     Private[Clé privée Ed25519] --> Auth
     Public[Clé publique Ed25519] --> Gateway
+    Public --> Workspace
 ```
 
 Le gateway publie les 14 opérations Auth sous `/qslate/v1/auth` et
@@ -78,13 +82,16 @@ Le gateway publie les 14 opérations Auth sous `/qslate/v1/auth` et
 (login/register, actions email, création de clé, authorize/callback) partagent
 10 appels par minute et IP pour une instance de gateway. Les routes privées
 exigent un JWT valide au gateway **et** au service, ainsi qu'une session active
-en base Auth. Aucune route des autres domaines n'est publiée implicitement.
+en base Auth. Workspace publie aussi les 11 opérations de la section 3,
+contrôle le propriétaire dans sa base et vérifie chaque session par l'API Auth.
+Aucune route des autres domaines n'est publiée implicitement.
 Les probes `/healthz` et `/readyz` ont des rôles distincts ; readiness du
 gateway vérifie les upstreams.
 
 Compose publie le gateway sur `127.0.0.1:8080` et Mailpit, uniquement pour le
-développement, sur `127.0.0.1:8025`. PostgreSQL n'a aucun port hôte et
-se trouve sur un réseau accessible à auth, pas au gateway. La clé privée
+développement, sur `127.0.0.1:8025`. PostgreSQL n'a aucun port hôte.
+Chaque base se trouve sur un réseau accessible uniquement à son service,
+pas au gateway ni à l'autre service. La clé privée
 n'est montée que dans auth. Les services Go tournent avec un utilisateur
 non privilégié, un filesystem en lecture seule et sans capacités Linux.
 Auth dispose d'une sortie réseau pour les fournisseurs OAuth2 et SMTP.
@@ -126,7 +133,7 @@ la consommer plus tard via un contrat de transport explicite.
 
 Les choix précis et limites se trouvent dans [contracts.md](contracts.md).
 Le contrat REST recense 95 opérations issues du PDF + 3 extensions OAuth2 ;
-seules les 17 opérations Auth/OAuth2 sont implémentées. Les autres domaines
+28 opérations sont implémentées : 17 Auth/OAuth2 et 11 Workspace. Les autres domaines
 et les deux flux AsyncAPI restent planifiés ; les chemins tronqués du PDF
 et les payloads reconstruits sont identifiés comme propositions.
 
@@ -178,8 +185,8 @@ idempotence, cancellation et dead-letter. Les événements sont versionnés
 
 1. Brancher les formulaires du frontend, le cookie HttpOnly, les liens email
    et le callback OAuth2 ; valider les chemins/payloads proposés avec le frontend.
-2. Extraire Workspace et Strategy, appliquer la propriété des ressources dans
-   chaque service ; le JWT identifie une personne, il n'autorise pas toute donnée.
+2. Ajouter le catalogue Widgets (section 4), puis Strategy, en conservant la
+   propriété des ressources et l'isolation déjà appliquées dans Workspace.
 3. Extraire Market data et Lab, figer stratégie/dataset par run.
 4. Introduire queue et workers séparés ; durcir l'exécution avec gVisor/Kata,
    quotas CPU/mémoire/temps, réseau contrôlé et séparation des secrets.

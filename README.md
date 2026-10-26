@@ -1,6 +1,6 @@
 # QSlate-Back
 Backend de recherche quantitative QSlate. Le socle Go contient un gateway et
-un premier microservice d'authentification. Le moteur de backtest existant est
+les microservices Auth et Workspace. Le moteur de backtest existant est
 en Python/FastAPI ; l'orchestration isolée, TimescaleDB et le Builder sont les
 prochaines étapes décrites dans [l'analyse d'architecture](docs/architecture.md).
 
@@ -9,6 +9,7 @@ prochaines étapes décrites dans [l'analyse d'architecture](docs/architecture.m
 ```text
 gateway/                  routage configurable et vérification JWT
 services/auth/            comptes, sessions, OAuth2, emails et clés API
+services/workspace/       dashboards privés, grille et instances de widgets
 internal/platform/        configuration, HTTP, JWT et connexion DB techniques
 templates/microservice/   service neutre, exécutable et générable
 cmd/                      initialisation locale et générateur
@@ -28,10 +29,12 @@ make up
 curl http://localhost:8080/readyz
 ```
 
-`make up` crée une fois `.env` (mot de passe PostgreSQL aléatoire) et
+`make up` crée une fois `.env` (mots de passe PostgreSQL indépendants) et
 `.secrets/` (clés Ed25519), puis démarre les services. Les fichiers existants
-sont conservés. Le gateway est publié sur localhost:8080 et la boîte email de
-développement Mailpit sur localhost:8025 ; auth et PostgreSQL n'ont pas de port
+sont conservés ; `make init` ajoute le mot de passe Workspace s'il manque sans
+modifier les valeurs existantes. Le gateway est publié sur localhost:8080 et la
+boîte email de développement Mailpit sur localhost:8025 ; les services et leurs
+bases PostgreSQL n'ont pas de port
 hôte. Auth dispose d'une sortie réseau pour OAuth2/SMTP. Les credentials sont
 ignorés par Git/Docker.
 
@@ -63,7 +66,7 @@ maximum par défaut. Un rejeu révoque la session. Le frontend doit sérialiser
 ses refresh et envoyer `credentials: include`.
 Les erreurs applicatives renvoient `{"error":{"code":"...","message":"..."}}`.
 
-Les migrations SQL sont embarquées dans auth et appliquées au démarrage sous
+Les migrations SQL sont embarquées dans chaque service et appliquées au démarrage sous
 verrou transactionnel : une migration déjà appliquée ne doit pas être modifiée.
 Ajouter un nouveau fichier numéroté pour faire évoluer une base existante.
 
@@ -72,9 +75,14 @@ login/logout/refresh, récupération de mot de passe, vérification d'email,
 profil, préférences et gestion des clés API Runner. Trois routes ajoutent
 OAuth2 configurable (fournisseurs, authorize, callback). Les emails sont mis
 en file chiffrée transactionnelle puis envoyés par SMTP.
+Les 11 opérations de la section 3 sont également implémentées : dashboards,
+duplication, sauvegarde de grille avec révision, instances de widgets et reset
+de layout configurable. Workspace vérifie la session active auprès d'Auth sur
+chaque requête et applique la propriété des ressources dans sa propre base.
 
 Voir [le contrat Auth](docs/auth.openapi.yaml), [le contrat REST complet](docs/qslate.openapi.json)
-et [les conventions et contrats proposés](docs/contracts.md). Les autres domaines
+et [le service Workspace](services/workspace/README.md), ainsi que
+[les conventions et contrats proposés](docs/contracts.md). Les autres domaines
 et les deux flux [WebSocket](docs/streams.asyncapi.json) sont **planifiés**, pas
 implémentés. Le frontend et le backtest Python ne sont pas encore intégrés.
 MFA, liaison explicite de comptes et validation des clés côté Runner restent à faire.
@@ -99,10 +107,10 @@ nécessitant un protocole différent devront disposer d'un adaptateur dédié.
 ```bash
 make test                       # tests avec race detector
 make vet
-make build                      # bin/gateway et bin/auth
-API_BASE_URL=http://localhost:8080 make test-e2e  # stack démarrée
-make new-service NAME=workspace
-go build ./services/workspace/...
+make build                      # bin/gateway, bin/auth et bin/workspace
+API_BASE_URL=http://localhost:8080 MAILPIT_URL=http://localhost:8025 make test-e2e
+make new-service NAME=strategy
+go build ./services/strategy/...
 make logs
 make down                       # arrêt, données PostgreSQL conservées
 ```
@@ -118,23 +126,26 @@ Tests PostgreSQL, sur une base de développement accessible :
 TEST_DATABASE_URL='postgres://user:password@localhost:5432/database?sslmode=disable' make test-integration
 ```
 
-Chaque test crée et supprime uniquement son schéma `auth_test_*`. La CI fournit
+Chaque test crée et supprime uniquement son schéma `auth_test_*` ou `workspace_test_*`. La CI fournit
 sa propre base. Pour lancer les binaires hors Docker, injecter `DATABASE_URL`
-pour auth et `AUTH_SERVICE_URL=http://127.0.0.1:8081` pour le gateway ; `.env`
+propre à chaque service, `AUTH_SERVICE_URL=http://127.0.0.1:8081` pour Workspace et
+le gateway, et `WORKSPACE_SERVICE_URL=http://127.0.0.1:8082` pour le gateway ; `.env`
 n'est pas chargé automatiquement par les binaires Go.
 
 ### Configuration
 
 | Variable | Composant | Défaut / contrainte |
 | --- | --- | --- |
-| `HTTP_ADDR` | Gateway / auth | `:8080` / `:8081` hors Docker |
-| `AUTH_SERVICE_URL` | Gateway, substitution des routes | Obligatoire pour la configuration livrée |
+| `HTTP_ADDR` | Gateway / auth / workspace | `:8080` / `:8081` / `:8082` hors Docker |
+| `AUTH_SERVICE_URL` | Gateway et Workspace | Obligatoire pour les routes et la validation des sessions |
+| `WORKSPACE_SERVICE_URL` | Gateway | Obligatoire pour la configuration livrée |
+| `WORKSPACE_LAYOUT_FILE` | Workspace | `services/workspace/config/layout.json` ; `/app/layout.json` dans l'image |
 | `ROUTES_FILE` | Gateway | `gateway/config/routes.json` |
 | `ALLOWED_ORIGINS` | Gateway / auth | `http://localhost:3000`, liste séparée par virgules |
-| `DATABASE_URL` | Auth | Obligatoire ; choisir les paramètres TLS pour l'environnement |
+| `DATABASE_URL` | Auth / Workspace | Une base propre à chaque service ; paramètres TLS adaptés à l'environnement |
 | `JWT_PRIVATE_KEY_FILE` | Auth uniquement | `.secrets/auth-private.pem` |
-| `JWT_PUBLIC_KEY_FILE` | Gateway | `.secrets/auth-public.pem` |
-| `JWT_ISSUER` / `JWT_AUDIENCE` | Les deux | `qslate-auth` / `qslate-api` |
+| `JWT_PUBLIC_KEY_FILE` | Gateway / Workspace | `.secrets/auth-public.pem` |
+| `JWT_ISSUER` / `JWT_AUDIENCE` | Gateway / Auth / Workspace | `qslate-auth` / `qslate-api` |
 | `ACCESS_TOKEN_TTL` | Auth | `15m`, entre `1m` et `1h` |
 | `REFRESH_TOKEN_TTL` | Auth | `720h`, supérieur à l'access token, maximum `2160h` |
 | `COOKIE_SECURE` | Auth | `true` ; `false` uniquement pour HTTP local dans Compose |

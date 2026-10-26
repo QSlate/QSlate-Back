@@ -1,0 +1,75 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "QSlate Workspace API",
+    "version": "1.0.0",
+    "description": "All 11 section-3 operations; schemas and operations reference the canonical REST contract."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8082"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/dashboards": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1dashboards"
+    },
+    "/dashboards/{dashboardId}": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1dashboards~1{dashboardId}"
+    },
+    "/dashboards/{dashboardId}/duplicate": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1dashboards~1{dashboardId}~1duplicate"
+    },
+    "/dashboards/{dashboardId}/layout": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1dashboards~1{dashboardId}~1layout"
+    },
+    "/dashboards/{dashboardId}/widgets": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1dashboards~1{dashboardId}~1widgets"
+    },
+    "/dashboards/{dashboardId}/widgets/{instanceId}": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1dashboards~1{dashboardId}~1widgets~1{instanceId}"
+    },
+    "/dashboards/{dashboardId}/layout/reset": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1dashboards~1{dashboardId}~1layout~1reset"
+    },
+    "/healthz": {
+      "get": {
+        "security": [],
+        "operationId": "healthz",
+        "responses": {
+          "200": {
+            "description": "Healthy"
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "security": [],
+        "operationId": "readyz",
+        "responses": {
+          "200": {
+            "description": "Healthy"
+          },
+          "503": {
+            "description": "PostgreSQL or Auth unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

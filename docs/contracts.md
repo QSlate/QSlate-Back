@@ -4,12 +4,13 @@
 vue des routes Auth/OAuth qui référence ce contrat (JSON est aussi du YAML valide).
 `streams.asyncapi.json` décrit les deux flux WebSocket ; ils ne sont pas encore
 implémentés. Les contrats distinguent explicitement `x-implementation: implemented`
-et `planned` ; seuls les endpoints Auth/OAuth sont enregistrés au gateway.
+et `planned` ; les 17 endpoints Auth/OAuth et les 11 endpoints Workspace sont
+enregistrés au gateway (28 sur 98 opérations REST).
 
 Le PDF source contient 95 opérations REST et 2 flux WS. Nous ajoutons 3 opérations
 OAuth2, soit 98 opérations REST dans le contrat. Les chemins tronqués ont été
 reconstruits comme des **propositions**, indiquées par `x-path-origin`.
-Les payloads hors Auth sont également des propositions à valider avec le frontend.
+Les payloads hors Auth sont également des conventions à valider avec le frontend.
 Ils ne doivent pas être présentés comme des détails retrouvés dans le PDF.
 
 ## Répartition des domaines
@@ -148,6 +149,36 @@ Après succès, le callback pose le cookie de session et redirige vers l'URL fix
 `PUBLIC_APP_URL/auth/callback?status=success`. Le frontend appelle ensuite refresh
 pour obtenir l'access token ; aucun token n'est ajouté à une URL de redirection.
 Le login/register par mot de passe et OAuth utilisent la même émission de session.
+
+## Section 3 : Workspace livré
+
+Les 11 opérations dashboards/layouts/instances sont implémentées dans un binaire
+Workspace et une base PostgreSQL indépendants. Le
+[contrat Workspace](workspace.openapi.yaml) référence le contrat canonique ; le
+[README du service](../services/workspace/README.md) détaille les règles.
+
+Chaque requête valide le JWT puis la session auprès d'Auth par `GET /users/me`.
+Logout et reset invalident donc aussi Workspace ; un Auth indisponible entraîne
+503, jamais une autorisation sur la seule signature. Les ressources privées sont
+filtrées par propriétaire en SQL, sans lecture de la base Auth.
+
+Les modifications sont sérialisées par verrou de ligne et incrémentent la
+révision. La sauvegarde de grille exige la révision courante (sinon 409) et
+remplace atomiquement toutes les positions : une par instance, sans chevauchement
+ni dépassement des bornes configurées. Les réponses dashboard exposent `layout`,
+`widgets`, `revision` et dates ; les listes sont des résumés paginés par ID.
+
+La duplication régénère tous les IDs et conserve un instantané cohérent. Ajout et
+suppression de widget mettent à jour ses positions dans la même transaction.
+PATCH remplace entièrement l'objet configuration, sans changer la version.
+Reset conserve les instances et utilise les dimensions du fichier
+`services/workspace/config/layout.json`, chargé via `WORKSPACE_LAYOUT_FILE`.
+
+La section 4 (catalogue) n'est pas implémentée : les références de widget/version
+sont syntaxiquement validées, sans prétendre vérifier leur existence ou leurs
+schémas métier. Ces vérifications devront passer par le contrat du catalogue.
+Les limites de grille et la sémantique détaillée des payloads sont des choix
+d'implémentation explicites là où le PDF ne les définit pas.
 
 ## WebSocket
 
