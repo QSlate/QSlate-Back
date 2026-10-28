@@ -4,12 +4,13 @@ import (
 	"context"
 	"log/slog"
 	"os"
-	"qslate/internal/platform/config"
-	"qslate/internal/platform/httpx"
-	"qslate/internal/platform/postgres"
-	"qslate/internal/platform/session"
-	"qslate/internal/platform/token"
 	handler "qslate/services/widgets/internal/http"
+	"qslate/services/widgets/internal/marketplace"
+	"qslate/services/widgets/internal/platform/config"
+	"qslate/services/widgets/internal/platform/httpx"
+	"qslate/services/widgets/internal/platform/postgres"
+	"qslate/services/widgets/internal/platform/session"
+	"qslate/services/widgets/internal/platform/token"
 	"qslate/services/widgets/internal/preview"
 	"qslate/services/widgets/internal/repository"
 	"qslate/services/widgets/internal/service"
@@ -18,7 +19,7 @@ import (
 )
 
 func run(logger *slog.Logger) error {
-	cfg, err := service.LoadConfig(config.Env("WIDGETS_CONFIG_FILE", "services/widgets/config/catalogue.json"))
+	cfg, err := service.LoadConfig(config.Env("WIDGETS_CONFIG_FILE", "config/catalogue.json"))
 	if err != nil {
 		return err
 	}
@@ -65,7 +66,11 @@ func run(logger *slog.Logger) error {
 		}
 		return sessions.Ready(ctx)
 	}
-	return httpx.Run(config.Env("HTTP_ADDR", ":8083"), handler.New(svc, cfg, verifier, sessions, ready, logger), logger)
+	market, err := marketplace.New(os.Getenv("MARKETPLACE_SERVICE_URL"))
+	if err != nil {
+		return err
+	}
+	return httpx.Run(config.Env("HTTP_ADDR", ":8083"), handler.New(svc, cfg, verifier, sessions, ready, logger, market), logger)
 }
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("service", "widgets")

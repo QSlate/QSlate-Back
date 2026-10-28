@@ -1,0 +1,8 @@
+.git
+.env*
+.secrets
+AGENTS.[mM][dD]
+**/AGENTS.[mM][dD]
+__pycache__
+*.pyc
+test_*.py

@@ -20,7 +20,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Printf("Created services/%s; run go build ./services/%s/...\n", *name, *name)
+	fmt.Printf("Created services/%s; run make -C services/%s test build (workspace registration is optional: go work use ./services/%s)\n", *name, *name, *name)
 }
 
 func generate(root, name string) error {
@@ -42,6 +42,13 @@ func generate(root, name string) error {
 		if walkErr != nil {
 			return walkErr
 		}
+		entryName := entry.Name()
+		if entry.IsDir() && (entryName == ".git" || entryName == ".secrets" || entryName == "bin" || entryName == "__pycache__") {
+			return filepath.SkipDir
+		}
+		if !entry.IsDir() && (strings.EqualFold(entryName, "AGENTS.md") || entryName == ".env" || (strings.HasPrefix(entryName, ".env.") && !strings.HasSuffix(entryName, ".example")) || entryName == "go.work" || entryName == "go.work.sum" || strings.HasSuffix(entryName, ".test")) {
+			return nil
+		}
 		rel, err := filepath.Rel(source, path)
 		if err != nil {
 			return err
@@ -60,6 +67,10 @@ func generate(root, name string) error {
 		contents := strings.ReplaceAll(string(data), "qslate/templates/microservice", "qslate/services/"+name)
 		contents = strings.ReplaceAll(contents, "./templates/microservice", "./services/"+name)
 		contents = strings.ReplaceAll(contents, "microservice-template", name)
+		if rel == "Makefile" {
+			contents = strings.ReplaceAll(contents, "bin/microservice", "bin/"+name)
+			contents = strings.ReplaceAll(contents, "qslate-microservice", "qslate-"+name)
+		}
 		return os.WriteFile(out, []byte(contents), 0644)
 	})
 }

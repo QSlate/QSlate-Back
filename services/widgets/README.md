@@ -21,7 +21,9 @@ suffixes and payload details are explicit implementation conventions.
 Lists return `{items,next_cursor?}` with lightweight summaries, never source.
 ID-descending keyset pagination defaults to 100 and accepts 1-1000 items.
 `installed` means globally configured installed definitions **plus the user's
-own custom definitions**, not marketplace purchases or per-account entitlements.
+own custom definitions**. With `MARKETPLACE_SERVICE_URL` configured, it also
+includes private, pinned Marketplace widget/indicator installations (`kind:
+marketplace`, ID `market-<itemId>`), fetched through an authenticated HTTP adapter.
 The default installed catalogue is empty, not fabricated sample widgets.
 
 Create/replace accepts `{name,language,source,configuration?}`. Languages are
@@ -55,11 +57,11 @@ new instances are stored, and preserves archived versions for already pinned
 instances. Source is never returned by resolution. This is a per-request check,
 not a distributed transaction or catalogue reservation; retained versions prevent
 source loss if a definition is archived concurrently. Widget-specific parameter
-schemas, marketplace entitlement policies and OPA remain separate work.
+schemas, paid entitlement policies and OPA remain separate work.
 
 ## Configuration
 
-`WIDGETS_CONFIG_FILE` defaults to `services/widgets/config/catalogue.json` locally,
+`WIDGETS_CONFIG_FILE` defaults to `config/catalogue.json` from the service directory,
 `/app/catalogue.json` in the image. Compose mounts it read-only. Restart Widgets
 after edits. Invalid settings stop startup.
 
@@ -110,13 +112,19 @@ controller. Production workload authentication/mTLS is still a deployment concer
 
 ```bash
 make up
-go test -race ./services/widgets/... ./services/workspace/...
+make -C services/widgets test build
+make -C services/widgets docker-build
 TEST_DATABASE_URL='postgres://user:password@localhost:5432/test_db?sslmode=disable' make test-integration
 API_BASE_URL=http://localhost:8080 MAILPIT_URL=http://localhost:8025 make test-e2e
 ```
 
 Outside Docker inject a Widgets-owned `DATABASE_URL`, `AUTH_SERVICE_URL` and the
-public key, then `go run ./services/widgets/cmd/service` (port 8083). Workspace
+public key, then `make -C services/widgets run` (port 8083). Workspace
 also requires `WIDGETS_SERVICE_URL`; the gateway requires it for route expansion.
 `make init` adds an independent Widgets password without rotating existing values.
 Integration tests create/remove only their own `widgets_test_*` schemas.
+
+The folder owns its Go module, checksums, Dockerfile, configuration and local
+technical helpers. It builds with `GOWORK=off` and no root/sibling source, like
+AREA's independent services. Auth remains an HTTP dependency for live sessions,
+not a Go dependency. Root Compose is only the development orchestrator.
