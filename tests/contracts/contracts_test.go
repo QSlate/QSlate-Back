@@ -46,11 +46,14 @@ func TestGatewayPublishesOnlyImplementedContract(t *testing.T) {
 		if !found || operation.Implementation != "implemented" {
 			t.Fatalf("route absent or planned in contract: %s", key)
 		}
-		if (strings.HasPrefix(route.Path, "/qslate/v1/users/") || strings.HasPrefix(route.Path, "/qslate/v1/dashboards")) && !route.AuthRequired {
+		if (strings.HasPrefix(route.Path, "/qslate/v1/users/") || strings.HasPrefix(route.Path, "/qslate/v1/dashboards") || strings.HasPrefix(route.Path, "/qslate/v1/widgets/")) && !route.AuthRequired {
 			t.Fatalf("account route unprotected: %s", key)
 		}
 		if strings.HasPrefix(route.Path, "/qslate/v1/dashboards") && (route.Upstream != "${WORKSPACE_SERVICE_URL}" || route.TargetPath != strings.TrimPrefix(route.Path, "/qslate/v1")) {
 			t.Fatalf("invalid Workspace route mapping: %s", key)
+		}
+		if strings.HasPrefix(route.Path, "/qslate/v1/widgets/") && (route.Upstream != "${WIDGETS_SERVICE_URL}" || route.TargetPath != strings.TrimPrefix(route.Path, "/qslate/v1")) {
+			t.Fatalf("invalid Widgets route mapping: %s", key)
 		}
 	}
 	count, implemented := 0, 0
@@ -77,13 +80,22 @@ func TestGatewayPublishesOnlyImplementedContract(t *testing.T) {
 			}
 		}
 	}
-	if count != 98 || implemented != 28 {
-		t.Fatalf("REST operations: %d total / %d implemented, expected 95+3 / 14+3+11", count, implemented)
+	if count != 98 || implemented != 35 {
+		t.Fatalf("REST operations: %d total / %d implemented, expected 95+3 / 14+3+11+7", count, implemented)
 	}
 }
 
-func TestWorkspaceViewsReferenceEveryCanonicalPath(t *testing.T) {
-	for _, path := range []string{"../../docs/workspace.openapi.yaml", "../../services/workspace/openapi.yaml"} {
+func TestServiceViewsReferenceEveryCanonicalPath(t *testing.T) {
+	for _, viewSpec := range []struct {
+		path, prefix string
+		count        int
+	}{
+		{"../../docs/workspace.openapi.yaml", "/qslate/v1/dashboards", 7},
+		{"../../services/workspace/openapi.yaml", "/qslate/v1/dashboards", 7},
+		{"../../docs/widgets.openapi.yaml", "/qslate/v1/widgets/", 4},
+		{"../../services/widgets/openapi.yaml", "/qslate/v1/widgets/", 4},
+	} {
+		path := viewSpec.path
 		var view struct {
 			Paths map[string]struct {
 				Ref string `json:"$ref"`
@@ -106,18 +118,18 @@ func TestWorkspaceViewsReferenceEveryCanonicalPath(t *testing.T) {
 			}
 			readJSON(t, filepath.Join(filepath.Dir(path), parts[0]), &canonical)
 			key := strings.ReplaceAll(strings.ReplaceAll(strings.TrimPrefix(parts[1], "/paths/"), "~1", "/"), "~0", "~")
-			if !strings.HasPrefix(key, "/qslate/v1/dashboards") || len(canonical.Paths[key]) == 0 {
-				t.Fatalf("invalid Workspace reference: %s", entry.Ref)
+			if !strings.HasPrefix(key, viewSpec.prefix) || len(canonical.Paths[key]) == 0 {
+				t.Fatalf("invalid service reference: %s", entry.Ref)
 			}
 			for _, op := range canonical.Paths[key] {
 				if op.Implementation != "implemented" {
-					t.Fatal("Workspace view contains planned operation")
+					t.Fatal("service view contains planned operation")
 				}
 			}
 			paths++
 		}
-		if paths != 7 {
-			t.Fatalf("expected 7 paths / 11 operations in %s, got %d paths", path, paths)
+		if paths != viewSpec.count {
+			t.Fatalf("expected %d paths in %s, got %d", viewSpec.count, path, paths)
 		}
 	}
 }

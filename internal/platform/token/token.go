@@ -116,9 +116,16 @@ func (m *Manager) VerifySession(raw string) (int64, string, error) {
 type Verifier interface{ Verify(string) (int64, error) }
 type subjectKey struct{}
 type sessionKey struct{}
+type authorizationKey struct{}
 
 func Subject(ctx context.Context) int64    { id, _ := ctx.Value(subjectKey{}).(int64); return id }
 func SessionID(ctx context.Context) string { id, _ := ctx.Value(sessionKey{}).(string); return id }
+
+// Authorization forwards only the Bearer token already checked by Protect.
+func Authorization(ctx context.Context) string {
+	value, _ := ctx.Value(authorizationKey{}).(string)
+	return value
+}
 
 func Protect(verifier Verifier, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -143,6 +150,7 @@ func Protect(verifier Verifier, next http.Handler) http.Handler {
 		}
 		ctx := context.WithValue(r.Context(), subjectKey{}, id)
 		ctx = context.WithValue(ctx, sessionKey{}, sid)
+		ctx = context.WithValue(ctx, authorizationKey{}, "Bearer "+parts[1])
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

@@ -64,19 +64,26 @@ func initialize() error {
 	if err := ensureWorkspaceCredential(".env"); err != nil {
 		return err
 	}
+	if err := ensureDatabaseCredential(".env", "WIDGETS_DATABASE_PASSWORD"); err != nil {
+		return err
+	}
 	fmt.Println("Development credentials ready (.env and .secrets; existing values preserved)")
 	return nil
 }
 
 // Upgrade an existing development environment without rotating any credentials.
 func ensureWorkspaceCredential(path string) error {
+	return ensureDatabaseCredential(path, "WORKSPACE_DATABASE_PASSWORD")
+}
+
+func ensureDatabaseCredential(path, name string) error {
 	contents, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
 	for _, line := range strings.Split(string(contents), "\n") {
 		key, _, found := strings.Cut(strings.TrimPrefix(strings.TrimSpace(line), "export "), "=")
-		if found && strings.TrimSpace(key) == "WORKSPACE_DATABASE_PASSWORD" {
+		if found && strings.TrimSpace(key) == name {
 			return nil
 		}
 	}
@@ -88,7 +95,7 @@ func ensureWorkspaceCredential(path string) error {
 	if err != nil {
 		return err
 	}
-	_, writeErr := fmt.Fprintf(file, "\nWORKSPACE_DATABASE_PASSWORD=%s\n", hex.EncodeToString(secret))
+	_, writeErr := fmt.Fprintf(file, "\n%s=%s\n", name, hex.EncodeToString(secret))
 	return errors.Join(writeErr, file.Close())
 }
 

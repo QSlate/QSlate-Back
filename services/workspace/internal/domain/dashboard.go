@@ -8,10 +8,11 @@ import (
 )
 
 var (
-	ErrNotFound     = errors.New("dashboard not found")
-	ErrInvalidInput = errors.New("invalid workspace input")
-	ErrUnauthorized = errors.New("authenticated owner required")
-	ErrConflict     = errors.New("dashboard revision conflict")
+	ErrNotFound             = errors.New("dashboard not found")
+	ErrInvalidInput         = errors.New("invalid workspace input")
+	ErrUnauthorized         = errors.New("authenticated owner required")
+	ErrConflict             = errors.New("dashboard revision conflict")
+	ErrCatalogueUnavailable = errors.New("widget catalogue unavailable")
 )
 
 type Metadata struct {

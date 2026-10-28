@@ -1,0 +1,119 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "QSlate Widgets API",
+    "version": "1.0.0",
+    "description": "Seven section-4 operations. Preview dispatch requires an external gVisor sandbox controller; no local source execution."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8083"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/widgets/installed": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1widgets~1installed"
+    },
+    "/widgets/custom": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1widgets~1custom"
+    },
+    "/widgets/custom/{widgetId}": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1widgets~1custom~1{widgetId}"
+    },
+    "/widgets/custom/{widgetId}/preview": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1widgets~1custom~1{widgetId}~1preview"
+    },
+    "/healthz": {
+      "get": {
+        "security": [],
+        "operationId": "healthz",
+        "responses": {
+          "200": {
+            "description": "Healthy"
+          },
+          "503": {
+            "description": "Dependencies unavailable"
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "security": [],
+        "operationId": "readyz",
+        "responses": {
+          "200": {
+            "description": "Healthy"
+          },
+          "503": {
+            "description": "Dependencies unavailable"
+          }
+        }
+      }
+    },
+    "/catalogue/resolve": {
+      "post": {
+        "operationId": "resolvePrivateWidgetVersion",
+        "description": "Workspace-only private API, not routed by the gateway. Requires a verified active user Bearer token. existing=true permits owner-scoped archived versions for pinned instances.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "widget_id",
+                  "widget_version_id"
+                ],
+                "properties": {
+                  "widget_id": {
+                    "type": "string"
+                  },
+                  "widget_version_id": {
+                    "type": "string"
+                  },
+                  "existing": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verified widget_id/widget_version_id pair"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Inactive session"
+          },
+          "404": {
+            "description": "Unavailable, mismatched or private reference"
+          },
+          "503": {
+            "description": "Authority unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

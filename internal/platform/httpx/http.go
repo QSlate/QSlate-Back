@@ -27,12 +27,17 @@ func Error(w http.ResponseWriter, status int, code, message string) {
 
 // Decode accepts exactly one JSON object, with a bounded body and no unknown fields.
 func Decode(w http.ResponseWriter, r *http.Request, out any) bool {
+	return DecodeLimit(w, r, out, 16<<10)
+}
+
+// DecodeLimit keeps the same strict JSON rules with a service-specific body cap.
+func DecodeLimit(w http.ResponseWriter, r *http.Request, out any, limit int64) bool {
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" {
 		Error(w, 415, "unsupported_media_type", "Content-Type must be application/json")
 		return false
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	defer r.Body.Close()
 	var raw json.RawMessage
 	decoder := json.NewDecoder(r.Body)
@@ -57,7 +62,7 @@ func Decode(w http.ResponseWriter, r *http.Request, out any) bool {
 	if err != nil {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
-			Error(w, 413, "body_too_large", "request body exceeds 16 KiB")
+			Error(w, 413, "body_too_large", "request body exceeds the configured size limit")
 		} else {
 			Error(w, 400, "invalid_json", "expected one JSON object with supported fields")
 		}

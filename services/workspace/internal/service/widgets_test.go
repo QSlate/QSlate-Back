@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -8,6 +9,24 @@ import (
 
 	"qslate/services/workspace/internal/domain"
 )
+
+type failedCatalogue struct{ err error }
+
+func (c failedCatalogue) Validate(context.Context, int64, string, string, bool) error { return c.err }
+func TestWidgetReferenceFailureStopsMutation(t *testing.T) {
+	for _, want := range []error{domain.ErrCatalogueUnavailable, domain.ErrNotFound, domain.ErrUnauthorized} {
+		svc, err := New(&recordingRepository{}, testConfig(), failedCatalogue{want})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = svc.AddWidget(context.Background(), 42, strings.Repeat("a", 43), "widget", "version", nil); !errors.Is(err, want) {
+			t.Fatalf("catalogue failure not propagated: %v", err)
+		}
+	}
+	if _, err := New(&recordingRepository{}, testConfig(), nil); err == nil {
+		t.Fatal("missing catalogue accepted")
+	}
+}
 
 func TestConfigurationPreservesNumbersAndRejectsUnstorableJSON(t *testing.T) {
 	for _, raw := range []string{`null`, `[]`, `{"n":1e10001}`, `{"n":1e-10001}`, `{"n":1e999999999999999999999}`, `{"nested":[{"value":"\u0000"}]}`, `{"\u0000":true}`, string([]byte{'{', '"', 'x', '"', ':', '"', 0xff, '"', '}'})} {

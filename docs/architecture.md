@@ -72,9 +72,15 @@ flowchart LR
     Gateway -->|11 routes privées| Workspace[Workspace Go]
     Workspace --> WDB[(PostgreSQL Workspace)]
     Workspace -->|Session active via API| Auth
+    Gateway -->|7 routes privées| Widgets[Widgets Go]
+    Widgets --> WidgetsDB[(PostgreSQL Widgets)]
+    Widgets -->|Session active via API| Auth
+    Workspace -->|Résolution des versions par API| Widgets
+    Widgets -.->|Optionnel, externe non livré| Sandbox[Contrôleur sandbox gVisor]
     Private[Clé privée Ed25519] --> Auth
     Public[Clé publique Ed25519] --> Gateway
     Public --> Workspace
+    Public --> Widgets
 ```
 
 Le gateway publie les 14 opérations Auth sous `/qslate/v1/auth` et
@@ -133,7 +139,10 @@ la consommer plus tard via un contrat de transport explicite.
 
 Les choix précis et limites se trouvent dans [contracts.md](contracts.md).
 Le contrat REST recense 95 opérations issues du PDF + 3 extensions OAuth2 ;
-28 opérations sont implémentées : 17 Auth/OAuth2 et 11 Workspace. Les autres domaines
+35 opérations d'API sont implémentées : 17 Auth/OAuth2, 11 Workspace et 7 Widgets.
+La route de preview est une admission configurable vers une infrastructure
+gVisor externe, désactivée par défaut ; le runtime n'est pas livré ni validé ici.
+Les autres domaines
 et les deux flux AsyncAPI restent planifiés ; les chemins tronqués du PDF
 et les payloads reconstruits sont identifiés comme propositions.
 
@@ -185,7 +194,7 @@ idempotence, cancellation et dead-letter. Les événements sont versionnés
 
 1. Brancher les formulaires du frontend, le cookie HttpOnly, les liens email
    et le callback OAuth2 ; valider les chemins/payloads proposés avec le frontend.
-2. Ajouter le catalogue Widgets (section 4), puis Strategy, en conservant la
+2. Déployer/valider le contrôleur sandbox de preview, puis ajouter Strategy, en conservant la
    propriété des ressources et l'isolation déjà appliquées dans Workspace.
 3. Extraire Market data et Lab, figer stratégie/dataset par run.
 4. Introduire queue et workers séparés ; durcir l'exécution avec gVisor/Kata,

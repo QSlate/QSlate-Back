@@ -11,6 +11,7 @@ import (
 	"qslate/internal/platform/postgres"
 	"qslate/internal/platform/session"
 	"qslate/internal/platform/token"
+	"qslate/services/workspace/internal/catalogue"
 	handler "qslate/services/workspace/internal/http"
 	"qslate/services/workspace/internal/repository"
 	"qslate/services/workspace/internal/service"
@@ -34,6 +35,14 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	catalogueURL, err := config.Required("WIDGETS_SERVICE_URL")
+	if err != nil {
+		return err
+	}
+	catalogueClient, err := catalogue.New(catalogueURL)
+	if err != nil {
+		return err
+	}
 	dsn, err := config.Required("DATABASE_URL")
 	if err != nil {
 		return err
@@ -48,7 +57,7 @@ func run(logger *slog.Logger) error {
 	if err = migrations.Apply(ctx, db); err != nil {
 		return err
 	}
-	svc, err := service.New(repository.New(db), cfg)
+	svc, err := service.New(repository.New(db), cfg, catalogueClient)
 	if err != nil {
 		return err
 	}
@@ -56,7 +65,10 @@ func run(logger *slog.Logger) error {
 		if err := db.PingContext(ctx); err != nil {
 			return err
 		}
-		return sessions.Ready(ctx)
+		if err := sessions.Ready(ctx); err != nil {
+			return err
+		}
+		return catalogueClient.Ready(ctx)
 	}
 	return httpx.Run(config.Env("HTTP_ADDR", ":8082"), handler.New(svc, verifier, sessions, ready, logger), logger)
 }

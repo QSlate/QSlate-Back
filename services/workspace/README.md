@@ -60,11 +60,13 @@ verbatim requirements recovered from the PDF.
 - Reset retains instances and configurations, recomputing row-major positions
   from the configuration file. It does not delete widgets or restore metadata.
 
-Widget/version references currently validate identifier syntax only (1–128 ASCII
-letters/digits plus `._:-`, starting with a letter/digit). Existence, version
-compatibility and widget-specific configuration schemas must be checked via a
-future catalogue API, not by joining another service's tables. No catalogue
-lookup is claimed until section 4 exists.
+Widget/version references are now resolved against the private Widgets catalogue
+API using the verified active user session. New instances require active,
+owner-visible definitions and matching immutable versions. Existing instances
+and duplication can retain archived versions, still scoped to their owner.
+Catalogue outages fail closed with 503 before mutation. No cross-service SQL is
+used. Widget-specific parameter schemas remain future work. The check is not a
+distributed transaction; immutable versions are retained across archival.
 
 ## Configuration and deployment
 
@@ -78,7 +80,7 @@ dashboards: explicit layout save/reset validates against the new settings.
 Workspace has its own database, credentials, volume and private storage network.
 Only the gateway exposes its routes. Workspace can reach Auth's API, not Auth's
 database, and receives no signing key or OAuth secrets. Readiness checks both
-PostgreSQL and Auth; liveness checks the process. HTTP bodies are limited to 16 KiB,
+PostgreSQL, Auth and Widgets; liveness checks the process. HTTP bodies are limited to 16 KiB,
 request contexts to 10 seconds, Auth calls to 2 seconds. Internal service identity
 (mTLS/workload identities) is a production hardening step; private networks alone
 are not claimed to authenticate workloads.
@@ -93,7 +95,8 @@ API_BASE_URL=http://localhost:8080 MAILPIT_URL=http://localhost:8025 make test-e
 
 `make init` safely adds an independent Workspace password to an existing `.env`
 without rotating existing credentials. For a local Go process supply the
-Workspace-owned `DATABASE_URL`, `AUTH_SERVICE_URL=http://127.0.0.1:8081` and the
+Workspace-owned `DATABASE_URL`, `AUTH_SERVICE_URL=http://127.0.0.1:8081`,
+`WIDGETS_SERVICE_URL=http://127.0.0.1:8083` and the
 public key path, then run `go run ./services/workspace/cmd/service` (port 8082).
 Integration tests create/remove only their own `workspace_test_*` schemas.
 Migrations use shared technical runner `internal/platform/migrate`, but SQL and

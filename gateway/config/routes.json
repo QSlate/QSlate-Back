@@ -26,5 +26,12 @@
   {"method":"POST","path":"/qslate/v1/dashboards/{dashboardId}/widgets","upstream":"${WORKSPACE_SERVICE_URL}","target_path":"/dashboards/{dashboardId}/widgets","auth_required":true,"rate_limited":false},
   {"method":"PATCH","path":"/qslate/v1/dashboards/{dashboardId}/widgets/{instanceId}","upstream":"${WORKSPACE_SERVICE_URL}","target_path":"/dashboards/{dashboardId}/widgets/{instanceId}","auth_required":true,"rate_limited":false},
   {"method":"DELETE","path":"/qslate/v1/dashboards/{dashboardId}/widgets/{instanceId}","upstream":"${WORKSPACE_SERVICE_URL}","target_path":"/dashboards/{dashboardId}/widgets/{instanceId}","auth_required":true,"rate_limited":false},
-  {"method":"POST","path":"/qslate/v1/dashboards/{dashboardId}/layout/reset","upstream":"${WORKSPACE_SERVICE_URL}","target_path":"/dashboards/{dashboardId}/layout/reset","auth_required":true,"rate_limited":false}
+  {"method":"POST","path":"/qslate/v1/dashboards/{dashboardId}/layout/reset","upstream":"${WORKSPACE_SERVICE_URL}","target_path":"/dashboards/{dashboardId}/layout/reset","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/widgets/installed","upstream":"${WIDGETS_SERVICE_URL}","target_path":"/widgets/installed","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/widgets/custom","upstream":"${WIDGETS_SERVICE_URL}","target_path":"/widgets/custom","auth_required":true,"rate_limited":false},
+  {"method":"POST","path":"/qslate/v1/widgets/custom","upstream":"${WIDGETS_SERVICE_URL}","target_path":"/widgets/custom","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/widgets/custom/{widgetId}","upstream":"${WIDGETS_SERVICE_URL}","target_path":"/widgets/custom/{widgetId}","auth_required":true,"rate_limited":false},
+  {"method":"PUT","path":"/qslate/v1/widgets/custom/{widgetId}","upstream":"${WIDGETS_SERVICE_URL}","target_path":"/widgets/custom/{widgetId}","auth_required":true,"rate_limited":false},
+  {"method":"DELETE","path":"/qslate/v1/widgets/custom/{widgetId}","upstream":"${WIDGETS_SERVICE_URL}","target_path":"/widgets/custom/{widgetId}","auth_required":true,"rate_limited":false},
+  {"method":"POST","path":"/qslate/v1/widgets/custom/{widgetId}/preview","upstream":"${WIDGETS_SERVICE_URL}","target_path":"/widgets/custom/{widgetId}/preview","auth_required":true,"rate_limited":false}
 ]

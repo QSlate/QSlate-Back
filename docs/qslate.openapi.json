@@ -1867,7 +1867,7 @@
           "widgets"
         ],
         "x-owner": "widgets",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "200": {
@@ -1875,7 +1875,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Page"
+                  "$ref": "#/components/schemas/WidgetPage"
                 }
               }
             }
@@ -1904,6 +1904,16 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Auth, catalogue or sandbox controller unavailable; preview is disabled by default",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -1926,7 +1936,13 @@
               "type": "string"
             }
           }
-        ]
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Lists globally configured installed definitions and the current user's active custom definitions. Returns source-free summaries ordered by ID descending."
       }
     },
     "/qslate/v1/widgets/custom": {
@@ -1937,7 +1953,7 @@
           "widgets"
         ],
         "x-owner": "widgets",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "200": {
@@ -1945,7 +1961,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Page"
+                  "$ref": "#/components/schemas/WidgetPage"
                 }
               }
             }
@@ -1974,6 +1990,16 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Auth, catalogue or sandbox controller unavailable; preview is disabled by default",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -1996,7 +2022,13 @@
               "type": "string"
             }
           }
-        ]
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Lists only owned active custom definitions, with source-free summaries ordered by ID descending."
       },
       "post": {
         "operationId": "widgets_POST_widgets_custom",
@@ -2005,7 +2037,7 @@
           "widgets"
         ],
         "x-owner": "widgets",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "201": {
@@ -2048,6 +2080,16 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Auth, catalogue or sandbox controller unavailable; preview is disabled by default",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -2061,7 +2103,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/qslate/v1/widgets/custom/{widgetId}": {
@@ -2072,7 +2119,7 @@
           "widgets"
         ],
         "x-owner": "widgets",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "200": {
@@ -2109,6 +2156,16 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Auth, catalogue or sandbox controller unavailable; preview is disabled by default",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -2120,9 +2177,15 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 128
+              "minLength": 43,
+              "maxLength": 43,
+              "pattern": "^[a-zA-Z0-9_-]{43}$"
             }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
           }
         ]
       },
@@ -2133,7 +2196,7 @@
           "widgets"
         ],
         "x-owner": "widgets",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "200": {
@@ -2176,6 +2239,16 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Auth, catalogue or sandbox controller unavailable; preview is disabled by default",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -2187,8 +2260,9 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 128
+              "minLength": 43,
+              "maxLength": 43,
+              "pattern": "^[a-zA-Z0-9_-]{43}$"
             }
           }
         ],
@@ -2201,7 +2275,13 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Creates a new immutable source/configuration version and moves the current pointer atomically. Previous versions remain available for pinned dashboard instances. Concurrent saves retain all versions; the last committed save becomes current."
       },
       "delete": {
         "operationId": "widgets_DELETE_widgets_custom_widgetId",
@@ -2210,7 +2290,7 @@
           "widgets"
         ],
         "x-owner": "widgets",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "204": {
@@ -2240,6 +2320,16 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Auth, catalogue or sandbox controller unavailable; preview is disabled by default",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -2251,11 +2341,18 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 128
+              "minLength": 43,
+              "maxLength": 43,
+              "pattern": "^[a-zA-Z0-9_-]{43}$"
             }
           }
-        ]
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Archives the owned definition. New instances are rejected, but existing pinned versions remain privately resolvable by their owner. This is not a source-retention purge."
       }
     },
     "/qslate/v1/widgets/custom/{widgetId}/preview": {
@@ -2266,7 +2363,7 @@
           "widgets"
         ],
         "x-owner": "widgets",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "202": {
@@ -2309,6 +2406,16 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Auth, catalogue or sandbox controller unavailable; preview is disabled by default",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -2320,8 +2427,9 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 128
+              "minLength": 43,
+              "maxLength": 43,
+              "pattern": "^[a-zA-Z0-9_-]{43}$"
             }
           },
           {
@@ -2333,6 +2441,18 @@
               "minLength": 16,
               "maxLength": 128
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128,
+              "pattern": "^[a-zA-Z0-9._:-]{16,128}$"
+            },
+            "description": "Optional replay identity bound to owner, immutable widget version and normalized request. A missing key generates a fresh identity."
           }
         ],
         "requestBody": {
@@ -2344,7 +2464,14 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Dispatches an immutable source/configuration snapshot to a configured trusted sandbox controller. Disabled by default: returns 503 without executing or fabricating results. The external controller must enforce gVisor isolation, dataset ownership, durable idempotent admission, runtime/resource quotas and owner-scoped result access. No sandbox runtime/controller is shipped by this endpoint.",
+        "x-runtime-dependency": "external-gvisor-sandbox-controller"
       }
     },
     "/qslate/v1/strategies": {
@@ -7622,7 +7749,8 @@
         "properties": {
           "name": {
             "type": "string",
-            "maxLength": 150
+            "maxLength": 150,
+            "minLength": 1
           },
           "language": {
             "type": "string",
@@ -7633,11 +7761,14 @@
           },
           "source": {
             "type": "string",
-            "maxLength": 100000
+            "maxLength": 100000,
+            "minLength": 1,
+            "x-max-utf8-bytes": 100000
           },
           "configuration": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": true,
+            "description": "Optional JSON object, defaults to {}. At most 4096 UTF-8 bytes, without NUL or numeric exponents outside -10000..10000. Configuration is opaque UI metadata, not an instance JSON Schema."
           }
         },
         "required": [
@@ -7676,6 +7807,21 @@
           "configuration": {
             "type": "object",
             "additionalProperties": true
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "custom",
+              "installed"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "required": [
@@ -7683,8 +7829,80 @@
           "version_id",
           "name",
           "language",
-          "source"
+          "source",
+          "configuration",
+          "kind",
+          "created_at",
+          "updated_at"
         ]
+      },
+      "WidgetSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "version_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "name": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "python",
+              "rust"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "custom",
+              "installed"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "version_id",
+          "name",
+          "language",
+          "kind",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "WidgetPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WidgetSummary"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
       },
       "WidgetInstance": {
         "type": "object",
@@ -7711,7 +7929,7 @@
           "configuration": {
             "type": "object",
             "additionalProperties": true,
-            "description": "JSON object, at most 4096 UTF-8 bytes. Omitted on creation defaults to {}. Null is not allowed. Catalogue-specific validation belongs to the future Widgets service."
+            "description": "JSON object, at most 4096 UTF-8 bytes. Omitted on creation defaults to {}. Null is not allowed. Workspace resolves the owner-visible immutable widget/version pair through the Widgets catalogue. Widget-specific parameter schemas are not yet implemented."
           }
         },
         "required": [
@@ -7739,7 +7957,7 @@
           "configuration": {
             "type": "object",
             "additionalProperties": true,
-            "description": "JSON object, at most 4096 UTF-8 bytes. Omitted on creation defaults to {}. Null is not allowed. Catalogue-specific validation belongs to the future Widgets service."
+            "description": "JSON object, at most 4096 UTF-8 bytes. Omitted on creation defaults to {}. Null is not allowed. Workspace resolves the owner-visible immutable widget/version pair through the Widgets catalogue. Widget-specific parameter schemas are not yet implemented."
           }
         },
         "required": [
@@ -7754,7 +7972,7 @@
           "configuration": {
             "type": "object",
             "additionalProperties": true,
-            "description": "JSON object, at most 4096 UTF-8 bytes. Omitted on creation defaults to {}. Null is not allowed. Catalogue-specific validation belongs to the future Widgets service."
+            "description": "JSON object, at most 4096 UTF-8 bytes. Omitted on creation defaults to {}. Null is not allowed. Workspace resolves the owner-visible immutable widget/version pair through the Widgets catalogue. Widget-specific parameter schemas are not yet implemented."
           }
         },
         "minProperties": 1,

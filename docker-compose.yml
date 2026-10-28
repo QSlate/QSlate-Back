@@ -12,6 +12,7 @@ services:
       HTTP_ADDR: :8080
       AUTH_SERVICE_URL: http://auth:8080
       WORKSPACE_SERVICE_URL: http://workspace:8080
+      WIDGETS_SERVICE_URL: http://widgets:8080
       ROUTES_FILE: /app/routes.json
       JWT_PUBLIC_KEY_FILE: /run/secrets/auth-public.pem
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
@@ -24,7 +25,7 @@ services:
         condition: service_healthy
       workspace:
         condition: service_healthy
-    networks: [edge, auth-api, workspace-api]
+    networks: [edge, auth-api, workspace-api, widgets-api]
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -65,7 +66,7 @@ services:
     depends_on:
       auth-db:
         condition: service_healthy
-    networks: [auth-api, auth-storage, auth-mail, auth-egress, workspace-auth]
+    networks: [auth-api, auth-storage, auth-mail, auth-egress, workspace-auth, widgets-auth]
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -89,6 +90,7 @@ services:
       AUTH_SERVICE_URL: http://auth:8080
       JWT_PUBLIC_KEY_FILE: /run/secrets/auth-public.pem
       WORKSPACE_LAYOUT_FILE: /app/layout.json
+      WIDGETS_SERVICE_URL: http://widgets:8080
     volumes:
       - ./.secrets/auth-public.pem:/run/secrets/auth-public.pem:ro,Z
       - ./services/workspace/config/layout.json:/app/layout.json:ro,Z
@@ -97,12 +99,65 @@ services:
         condition: service_healthy
       auth:
         condition: service_healthy
-    networks: [workspace-api, workspace-storage, workspace-auth]
+      widgets:
+        condition: service_healthy
+    networks: [workspace-api, workspace-storage, workspace-auth, workspace-widgets]
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     healthcheck:
       test: [CMD, wget, -qO-, http://127.0.0.1:8080/readyz]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  widgets:
+    env_file:
+      - path: .env.preview
+        required: false
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+      args:
+        SERVICE_PATH: services/widgets/cmd/service
+    user: "${QSLATE_UID:?Run make init}:${QSLATE_GID:?Run make init}"
+    environment:
+      HTTP_ADDR: :8080
+      DATABASE_URL: postgres://qslate:${WIDGETS_DATABASE_PASSWORD:?Run make init}@widgets-db:5432/qslate_widgets?sslmode=disable
+      AUTH_SERVICE_URL: http://auth:8080
+      JWT_PUBLIC_KEY_FILE: /run/secrets/auth-public.pem
+      WIDGETS_CONFIG_FILE: /app/catalogue.json
+    volumes:
+      - ./.secrets/auth-public.pem:/run/secrets/auth-public.pem:ro,Z
+      - ./services/widgets/config/catalogue.json:/app/catalogue.json:ro,Z
+    depends_on:
+      widgets-db:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    networks: [widgets-api, widgets-storage, widgets-auth, workspace-widgets, widgets-preview]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, wget, -qO-, http://127.0.0.1:8080/readyz]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  widgets-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: qslate
+      POSTGRES_PASSWORD: ${WIDGETS_DATABASE_PASSWORD:?Run make init}
+      POSTGRES_DB: qslate_widgets
+    volumes:
+      - widgets-data:/var/lib/postgresql/data
+    networks: [widgets-storage]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U qslate -d qslate_widgets]
       interval: 5s
       timeout: 3s
       retries: 15
@@ -163,7 +218,17 @@ networks:
     internal: true
   workspace-storage:
     internal: true
+  widgets-api:
+    internal: true
+  widgets-storage:
+    internal: true
+  widgets-auth:
+    internal: true
+  workspace-widgets:
+    internal: true
+  widgets-preview:
 
 volumes:
   auth-data:
   workspace-data:
+  widgets-data:

@@ -81,6 +81,8 @@ func (r *router) fail(w http.ResponseWriter, req *http.Request, err error) {
 		httpx.Error(w, 409, "revision_conflict", "dashboard changed; reload it before saving the layout")
 	case errors.Is(err, session.ErrUnavailable):
 		httpx.Error(w, 503, "auth_unavailable", "session authority unavailable")
+	case errors.Is(err, domain.ErrCatalogueUnavailable):
+		httpx.Error(w, 503, "catalogue_unavailable", "widget catalogue unavailable")
 	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
 		httpx.Error(w, 503, "unavailable", "request could not complete")
 	default:

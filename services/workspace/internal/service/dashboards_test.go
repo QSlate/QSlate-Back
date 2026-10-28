@@ -31,7 +31,7 @@ func (r *recordingRepository) List(_ context.Context, owner int64, cursor string
 
 func TestCreateNormalizesMetadataAndGeneratesOpaqueIDs(t *testing.T) {
 	repo := &recordingRepository{}
-	svc, err := New(repo, testConfig())
+	svc, err := New(repo, testConfig(), testCatalogue{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestCreateNormalizesMetadataAndGeneratesOpaqueIDs(t *testing.T) {
 }
 
 func TestCreateRejectsInvalidMetadataBeforeRepository(t *testing.T) {
-	svc, _ := New(&recordingRepository{}, testConfig())
+	svc, _ := New(&recordingRepository{}, testConfig(), testCatalogue{})
 	for _, input := range []domain.Metadata{
 		{}, {Title: " "}, {Title: strings.Repeat("é", 151)}, {Title: "bad\x00name"}, {Title: "bad\nname"},
 		{Title: "Lab", Description: strings.Repeat("a", 2001)}, {Title: "Lab", Description: "bad\x00description"},
@@ -67,14 +67,14 @@ func TestCreateRejectsInvalidMetadataBeforeRepository(t *testing.T) {
 	if _, err := svc.Create(context.Background(), 0, domain.Metadata{Title: "Lab"}); !errors.Is(err, domain.ErrUnauthorized) {
 		t.Fatal("unauthenticated owner accepted")
 	}
-	if _, err := New(nil, testConfig()); err == nil {
+	if _, err := New(nil, testConfig(), testCatalogue{}); err == nil {
 		t.Fatal("nil repository accepted")
 	}
 }
 
 func TestListValidationAndDefaultPagination(t *testing.T) {
 	repo := &recordingRepository{}
-	svc, _ := New(repo, testConfig())
+	svc, _ := New(repo, testConfig(), testCatalogue{})
 	if _, err := svc.List(context.Background(), 42, "", 0); err != nil || repo.limit != 100 || repo.owner != 42 {
 		t.Fatal("pagination defaults incorrect")
 	}
@@ -92,7 +92,7 @@ func TestListValidationAndDefaultPagination(t *testing.T) {
 }
 
 func TestResourceValidationAndCancellation(t *testing.T) {
-	svc, _ := New(&recordingRepository{}, testConfig())
+	svc, _ := New(&recordingRepository{}, testConfig(), testCatalogue{})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	if _, err := svc.Create(ctx, 1, domain.Metadata{Title: "Lab"}); !errors.Is(err, context.Canceled) {

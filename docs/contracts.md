@@ -4,8 +4,10 @@
 vue des routes Auth/OAuth qui référence ce contrat (JSON est aussi du YAML valide).
 `streams.asyncapi.json` décrit les deux flux WebSocket ; ils ne sont pas encore
 implémentés. Les contrats distinguent explicitement `x-implementation: implemented`
-et `planned` ; les 17 endpoints Auth/OAuth et les 11 endpoints Workspace sont
-enregistrés au gateway (28 sur 98 opérations REST).
+et `planned` ; les 17 endpoints Auth/OAuth, 11 endpoints Workspace et 7 endpoints
+Widgets sont enregistrés au gateway (35 sur 98 opérations REST). Preview est
+une admission vers un contrôleur externe, indisponible par défaut, pas un runtime
+d'exécution livré dans l'API.
 
 Le PDF source contient 95 opérations REST et 2 flux WS. Nous ajoutons 3 opérations
 OAuth2, soit 98 opérations REST dans le contrat. Les chemins tronqués ont été
@@ -23,7 +25,7 @@ lorsqu'il partage provisoirement un binaire. Découpage proposé pour les 13 dom
 | --- | --- |
 | `auth` | Auth : identité, sessions, préférences de compte, clés API |
 | `workspace` | Workspace : projets et layouts privés |
-| `widgets` | Catalogue et versions des widgets ; peut débuter dans Workspace |
+| `widgets` | Catalogue et versions des widgets ; service et base indépendants |
 | `strategy` | Strategy : code et versions, sans exécution utilisateur |
 | `market-data` | Market data : catalogue, imports, datasets et ticks |
 | `lab` | Lab : runs, orchestration asynchrone et résultats |
@@ -174,11 +176,38 @@ PATCH remplace entièrement l'objet configuration, sans changer la version.
 Reset conserve les instances et utilise les dimensions du fichier
 `services/workspace/config/layout.json`, chargé via `WORKSPACE_LAYOUT_FILE`.
 
-La section 4 (catalogue) n'est pas implémentée : les références de widget/version
-sont syntaxiquement validées, sans prétendre vérifier leur existence ou leurs
-schémas métier. Ces vérifications devront passer par le contrat du catalogue.
+Depuis la section 4, Workspace résout les références de widget/version via l'API
+privée du catalogue, sous la session active du propriétaire. Les versions
+archivées restent accessibles pour des instances déjà créées, pas de nouvelles
+instanciations. Les schémas de paramètres propres à chaque widget restent à faire.
 Les limites de grille et la sémantique détaillée des payloads sont des choix
 d'implémentation explicites là où le PDF ne les définit pas.
+
+## Section 4 : catalogue et admission de preview
+
+Les sept routes sont décrites dans [Widgets OpenAPI](widgets.openapi.yaml).
+Le service possède sa base, ses versions immuables et un catalogue installé
+paramétrable par fichier. `installed` inclut les définitions globalement
+disponibles et les définitions privées de l'utilisateur ; le catalogue global
+est vide par défaut. Il n'implémente pas les droits d'achat de Marketplace.
+
+PUT crée une nouvelle version sans casser les instances déjà épinglées.
+DELETE archive la définition, sans détruire les anciennes versions. Chaque
+requête valide le JWT, la session et le propriétaire ; les listes ne renvoient
+pas le code source. La configuration est un objet UI opaque, pas un JSON Schema.
+Les sources sont limitées à 100000 octets UTF-8 et les objets à 4096, avec un
+corps HTTP Widgets maximal de 1 MiB (les limites Auth/Workspace restent 16 KiB).
+
+Preview transmet l'instantané de la version actuelle à un contrôleur sandbox
+de confiance configuré par fichier et variables de secrets. Il exige un accusé
+202 `{job_id,status:"queued"}` cohérent et renvoie 503 sinon. Il ne compile ni
+n'exécute le code et ne garantit pas l'existence du dataset. Le contrôleur doit
+contrôler les droits sur le dataset, la durabilité, la déduplication, l'isolation
+gVisor, les quotas et l'accès aux résultats. **Ce contrôleur/runtime reste à
+déployer et valider** ; le flow est désactivé par défaut. Les tests de dispatch
+utilisent un serveur de test, pas une sandbox présentée comme opérationnelle.
+
+Voir [les limites et le protocole](../services/widgets/README.md).
 
 ## WebSocket
 
