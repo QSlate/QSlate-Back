@@ -11,6 +11,7 @@ services:
       WORKSPACE_SERVICE_URL: http://workspace:8080
       WIDGETS_SERVICE_URL: http://widgets:8080
       STRATEGY_SERVICE_URL: http://strategy:8080
+      MARKETPLACE_SERVICE_URL: http://marketplace:8080
       ROUTES_FILE: /app/routes.json
       JWT_PUBLIC_KEY_FILE: /run/secrets/auth-public.pem
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
@@ -25,7 +26,9 @@ services:
         condition: service_healthy
       strategy:
         condition: service_healthy
-    networks: [edge, auth-api, workspace-api, widgets-api, strategy-api]
+      marketplace:
+        condition: service_healthy
+    networks: [edge, auth-api, workspace-api, widgets-api, strategy-api, marketplace-api]
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -63,7 +66,7 @@ services:
     depends_on:
       auth-db:
         condition: service_healthy
-    networks: [auth-api, auth-storage, auth-mail, auth-egress, workspace-auth, widgets-auth, strategy-auth]
+    networks: [auth-api, auth-storage, auth-mail, auth-egress, workspace-auth, widgets-auth, strategy-auth, marketplace-auth]
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -117,6 +120,7 @@ services:
       JWT_PUBLIC_KEY_FILE: /run/secrets/auth-public.pem
       STRATEGY_CONFIG_FILE: /app/strategy.json
       STRATEGY_ANALYZER_URL: http://strategy-analyzer:8080
+      MARKETPLACE_SERVICE_URL: http://marketplace:8080
     volumes:
       - ./.secrets/auth-public.pem:/run/secrets/auth-public.pem:ro,Z
       - ./services/strategy/config/strategy.json:/app/strategy.json:ro,Z
@@ -127,7 +131,7 @@ services:
         condition: service_healthy
       strategy-analyzer:
         condition: service_healthy
-    networks: [strategy-api, strategy-auth, strategy-storage, strategy-analysis]
+    networks: [strategy-api, strategy-auth, strategy-storage, strategy-analysis, marketplace-strategy]
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -190,6 +194,7 @@ services:
       AUTH_SERVICE_URL: http://auth:8080
       JWT_PUBLIC_KEY_FILE: /run/secrets/auth-public.pem
       WIDGETS_CONFIG_FILE: /app/catalogue.json
+      MARKETPLACE_SERVICE_URL: http://marketplace:8080
     volumes:
       - ./.secrets/auth-public.pem:/run/secrets/auth-public.pem:ro,Z
       - ./services/widgets/config/catalogue.json:/app/catalogue.json:ro,Z
@@ -198,12 +203,59 @@ services:
         condition: service_healthy
       auth:
         condition: service_healthy
-    networks: [widgets-api, widgets-storage, widgets-auth, workspace-widgets, widgets-preview]
+    networks: [widgets-api, widgets-storage, widgets-auth, workspace-widgets, widgets-preview, marketplace-widgets]
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     healthcheck:
       test: [CMD, wget, -qO-, http://127.0.0.1:8080/readyz]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  marketplace:
+    build:
+      context: ./services/marketplace
+    user: "${QSLATE_UID:?Run make init}:${QSLATE_GID:?Run make init}"
+    environment:
+      HTTP_ADDR: :8080
+      DATABASE_URL: postgres://qslate:${MARKETPLACE_DATABASE_PASSWORD:?Run make init}@marketplace-db:5432/qslate_marketplace?sslmode=disable
+      AUTH_SERVICE_URL: http://auth:8080
+      WIDGETS_SERVICE_URL: http://widgets:8080
+      STRATEGY_SERVICE_URL: http://strategy:8080
+      JWT_PUBLIC_KEY_FILE: /run/secrets/auth-public.pem
+      MARKETPLACE_CONFIG_FILE: /app/marketplace.json
+    volumes:
+      - ./.secrets/auth-public.pem:/run/secrets/auth-public.pem:ro,Z
+      - ./services/marketplace/config/marketplace.json:/app/marketplace.json:ro,Z
+    depends_on:
+      marketplace-db:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    networks: [marketplace-api, marketplace-auth, marketplace-storage, marketplace-widgets, marketplace-strategy]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, wget, -qO-, http://127.0.0.1:8080/readyz]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  marketplace-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: qslate
+      POSTGRES_PASSWORD: ${MARKETPLACE_DATABASE_PASSWORD:?Run make init}
+      POSTGRES_DB: qslate_marketplace
+    volumes:
+      - marketplace-data:/var/lib/postgresql/data
+    networks: [marketplace-storage]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U qslate -d qslate_marketplace]
       interval: 5s
       timeout: 3s
       retries: 15
@@ -297,9 +349,20 @@ networks:
     internal: true
   strategy-analysis:
     internal: true
+  marketplace-api:
+    internal: true
+  marketplace-auth:
+    internal: true
+  marketplace-storage:
+    internal: true
+  marketplace-widgets:
+    internal: true
+  marketplace-strategy:
+    internal: true
 
 volumes:
   auth-data:
   workspace-data:
   widgets-data:
   strategy-data:
+  marketplace-data:

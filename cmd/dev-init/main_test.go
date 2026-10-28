@@ -72,3 +72,28 @@ func TestStrategyCredentialDoesNotRotateExistingServiceSecrets(t *testing.T) {
 		t.Fatal("Strategy password rotated")
 	}
 }
+
+func TestMarketplaceCredentialUpgradePreservesOtherSecrets(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".env")
+	original := []byte("AUTH_DATABASE_PASSWORD=keep-auth\nWORKSPACE_DATABASE_PASSWORD=keep-workspace\nWIDGETS_DATABASE_PASSWORD=keep-widgets\nSTRATEGY_DATABASE_PASSWORD=keep-strategy\n")
+	if err := os.WriteFile(path, original, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureDatabaseCredential(path, "MARKETPLACE_DATABASE_PASSWORD"); err != nil {
+		t.Fatal(err)
+	}
+	first, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.HasPrefix(first, original) || bytes.Count(first, []byte("MARKETPLACE_DATABASE_PASSWORD=")) != 1 {
+		t.Fatal("existing secret changed")
+	}
+	if err := ensureDatabaseCredential(path, "MARKETPLACE_DATABASE_PASSWORD"); err != nil {
+		t.Fatal(err)
+	}
+	second, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(first, second) {
+		t.Fatal("Marketplace secret rotated")
+	}
+}

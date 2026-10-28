@@ -58,6 +58,9 @@ func TestGatewayPublishesOnlyImplementedContract(t *testing.T) {
 		if strings.HasPrefix(route.Path, "/qslate/v1/strategies") && (route.Upstream != "${STRATEGY_SERVICE_URL}" || route.TargetPath != strings.TrimPrefix(route.Path, "/qslate/v1")) {
 			t.Fatalf("invalid Strategy route mapping: %s", key)
 		}
+		if strings.HasPrefix(route.Path, "/qslate/v1/marketplace") && (route.Upstream != "${MARKETPLACE_SERVICE_URL}" || route.TargetPath != strings.TrimPrefix(route.Path, "/qslate/v1") || route.AuthRequired != (route.Method != "GET")) {
+			t.Fatalf("invalid Marketplace routing/authentication: %s", key)
+		}
 	}
 	count, implemented := 0, 0
 	ids := map[string]bool{}
@@ -83,8 +86,8 @@ func TestGatewayPublishesOnlyImplementedContract(t *testing.T) {
 			}
 		}
 	}
-	if count != 98 || implemented != 44 {
-		t.Fatalf("REST operations: %d total / %d implemented, expected 95+3 / 14+3+11+7+9", count, implemented)
+	if count != 98 || implemented != 55 {
+		t.Fatalf("REST operations: %d total / %d implemented, expected 95+3 / 14+3+11+7+9+11", count, implemented)
 	}
 }
 
@@ -99,6 +102,8 @@ func TestServiceViewsReferenceEveryCanonicalPath(t *testing.T) {
 		{"../../services/widgets/openapi.yaml", "/qslate/v1/widgets/", 4},
 		{"../../docs/strategy.openapi.yaml", "/qslate/v1/strategies", 6},
 		{"../../services/strategy/openapi.yaml", "/qslate/v1/strategies", 6},
+		{"../../docs/marketplace.openapi.yaml", "/qslate/v1/marketplace", 7},
+		{"../../services/marketplace/openapi.yaml", "/qslate/v1/marketplace", 7},
 	} {
 		path := viewSpec.path
 		var view struct {
