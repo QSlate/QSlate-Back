@@ -56,7 +56,7 @@ func (p *Postgres) Create(ctx context.Context, uid int64, wid, version string, i
 }
 func (p *Postgres) List(ctx context.Context, uid int64, installed bool, cursor string, limit int) (domain.Page, error) {
 	page := domain.Page{Items: []domain.Summary{}}
-	rows, err := p.db.QueryContext(ctx, `SELECT `+summaryColumns+currentJoin+`WHERE w.deleted_at IS NULL AND (w.owner_id=$1 OR ($2 AND w.kind='installed')) AND ($3='' OR w.id<$3) ORDER BY w.id DESC LIMIT $4`, uid, installed, cursor, limit+1)
+	rows, err := p.db.QueryContext(ctx, `SELECT `+summaryColumns+currentJoin+`WHERE w.deleted_at IS NULL AND (w.owner_id=$1 OR ($2 AND w.kind='installed')) AND ($3='' OR w.id COLLATE "C"<$3) ORDER BY w.id COLLATE "C" DESC LIMIT $4`, uid, installed, cursor, limit+1)
 	if err != nil {
 		return page, err
 	}
@@ -79,6 +79,17 @@ func (p *Postgres) List(ctx context.Context, uid int64, installed bool, cursor s
 }
 func (p *Postgres) Get(ctx context.Context, uid int64, wid string) (domain.Widget, error) {
 	return scan(p.db.QueryRowContext(ctx, `SELECT `+columns+currentJoin+`WHERE w.kind='custom' AND w.owner_id=$1 AND w.id=$2 AND w.deleted_at IS NULL`, uid, wid), true)
+}
+
+// Snapshot only exposes a revision owned by the active caller, never installed
+// definitions or another author's code. Marketplace pins this content privately.
+func (p *Postgres) Snapshot(ctx context.Context, uid int64, wid, version string) (domain.Input, error) {
+	var in domain.Input
+	err := p.db.QueryRowContext(ctx, `SELECT v.name,v.language,v.source,v.configuration FROM widgets w JOIN widget_versions v ON v.widget_id=w.id WHERE w.id=$1 AND v.id=$2 AND w.owner_id=$3 AND w.kind='custom' AND w.deleted_at IS NULL`, wid, version, uid).Scan(&in.Name, &in.Language, &in.Source, &in.Configuration)
+	if errors.Is(err, sql.ErrNoRows) {
+		err = domain.ErrNotFound
+	}
+	return in, err
 }
 func (p *Postgres) Replace(ctx context.Context, uid int64, wid, version string, in domain.Input) (domain.Widget, error) {
 	tx, err := p.db.BeginTx(ctx, nil)

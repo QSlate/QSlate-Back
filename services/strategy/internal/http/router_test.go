@@ -75,7 +75,7 @@ func request(handler http.Handler, method, path, content string, body io.Reader)
 func TestAllNineOperationsCheckLiveSessionsBeforePayloads(t *testing.T) {
 	active := &sessions{err: session.ErrUnauthorized}
 	handler, _ := routerFor(t, active)
-	for _, path := range []string{"GET /strategies", "POST /strategies", "GET /strategies/id", "PUT /strategies/id", "DELETE /strategies/id", "POST /strategies/import", "GET /strategies/id/versions", "POST /strategies/id/restore", "POST /strategies/lint"} {
+	for _, path := range []string{"GET /strategies", "POST /strategies", "GET /strategies/id", "PUT /strategies/id", "DELETE /strategies/id", "POST /strategies/import", "GET /strategies/id/versions", "POST /strategies/id/restore", "POST /strategies/lint", "POST /catalogue/snapshot"} {
 		parts := strings.SplitN(path, " ", 2)
 		for _, bearer := range []string{"", "Bearer forged", "Bearer valid"} {
 			req := httptest.NewRequest(parts[0], parts[1], nil)
@@ -88,7 +88,7 @@ func TestAllNineOperationsCheckLiveSessionsBeforePayloads(t *testing.T) {
 			}
 		}
 	}
-	if active.calls != 9 {
+	if active.calls != 10 {
 		t.Fatal("unverified tokens reached Auth")
 	}
 	active.err = session.ErrUnavailable

@@ -57,9 +57,18 @@ func (p *Postgres) Create(ctx context.Context, uid int64, sid, vid string, in do
 func (p *Postgres) Get(ctx context.Context, uid int64, sid string) (domain.Strategy, error) {
 	return scan(p.db.QueryRowContext(ctx, `SELECT `+columns+currentJoin+`WHERE s.owner_id=$1 AND s.id=$2 AND s.deleted_at IS NULL`, uid, sid), true)
 }
+
+func (p *Postgres) Snapshot(ctx context.Context, uid int64, sid, version string) (domain.Input, error) {
+	var in domain.Input
+	err := p.db.QueryRowContext(ctx, `SELECT v.name,v.source,v.parameters FROM strategies s JOIN strategy_versions v ON v.strategy_id=s.id WHERE s.owner_id=$1 AND s.id=$2 AND v.id=$3 AND s.deleted_at IS NULL`, uid, sid, version).Scan(&in.Name, &in.Source, &in.Parameters)
+	if errors.Is(err, sql.ErrNoRows) {
+		err = domain.ErrNotFound
+	}
+	return in, err
+}
 func (p *Postgres) List(ctx context.Context, uid int64, cursor string, limit int) (domain.Page, error) {
 	page := domain.Page{Items: []domain.Summary{}}
-	rows, err := p.db.QueryContext(ctx, `SELECT `+summaryColumns+currentJoin+`WHERE s.owner_id=$1 AND s.deleted_at IS NULL AND ($2='' OR s.id<$2) ORDER BY s.id DESC LIMIT $3`, uid, cursor, limit+1)
+	rows, err := p.db.QueryContext(ctx, `SELECT `+summaryColumns+currentJoin+`WHERE s.owner_id=$1 AND s.deleted_at IS NULL AND ($2='' OR s.id COLLATE "C"<$2) ORDER BY s.id COLLATE "C" DESC LIMIT $3`, uid, cursor, limit+1)
 	if err != nil {
 		return page, err
 	}

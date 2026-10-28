@@ -147,6 +147,16 @@ func (s *Strategies) Create(ctx context.Context, uid int64, in domain.Input) (do
 	}
 	return s.repo.Create(ctx, uid, sid, vid, in)
 }
+
+func (s *Strategies) Snapshot(ctx context.Context, uid int64, sid, version string) (domain.Input, error) {
+	if err := scope(ctx, uid, sid); err != nil {
+		return domain.Input{}, err
+	}
+	if !idPattern.MatchString(sid) || !idPattern.MatchString(version) {
+		return domain.Input{}, domain.ErrNotFound
+	}
+	return s.repo.Snapshot(ctx, uid, sid, version)
+}
 func (s *Strategies) List(ctx context.Context, uid int64, cursor string, limit int) (domain.Page, error) {
 	if err := scope(ctx, uid, ""); err != nil {
 		return domain.Page{}, err
@@ -154,7 +164,7 @@ func (s *Strategies) List(ctx context.Context, uid int64, cursor string, limit i
 	if limit == 0 {
 		limit = 100
 	}
-	if limit < 1 || limit > 1000 || (cursor != "" && !idPattern.MatchString(cursor)) {
+	if limit < 1 || limit > 1000 || (cursor != "" && !idPattern.MatchString(cursor) && !(strings.HasPrefix(cursor, "market-") && idPattern.MatchString(strings.TrimPrefix(cursor, "market-")))) {
 		return domain.Page{}, invalid("invalid pagination")
 	}
 	return s.repo.List(ctx, uid, cursor, limit)

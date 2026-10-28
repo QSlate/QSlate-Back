@@ -7,6 +7,7 @@ import (
 	"qslate/services/strategy/internal/analysis"
 	"qslate/services/strategy/internal/domain"
 	handler "qslate/services/strategy/internal/http"
+	"qslate/services/strategy/internal/marketplace"
 	"qslate/services/strategy/internal/platform/config"
 	"qslate/services/strategy/internal/platform/httpx"
 	"qslate/services/strategy/internal/platform/postgres"
@@ -73,7 +74,11 @@ func run(logger *slog.Logger) error {
 		}
 		return nil
 	}
-	return httpx.Run(config.Env("HTTP_ADDR", ":8084"), handler.New(svc, cfg, verifier, sessions, ready, logger), logger)
+	market, err := marketplace.New(os.Getenv("MARKETPLACE_SERVICE_URL"))
+	if err != nil {
+		return err
+	}
+	return httpx.Run(config.Env("HTTP_ADDR", ":8084"), handler.New(svc, cfg, verifier, sessions, ready, logger, market), logger)
 }
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("service", "strategy")

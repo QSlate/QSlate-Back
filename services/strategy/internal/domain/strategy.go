@@ -33,6 +33,7 @@ type Summary struct {
 	VersionID string    `json:"version_id"`
 	Revision  int64     `json:"revision"`
 	Name      string    `json:"name"`
+	ReadOnly  bool      `json:"read_only,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -76,6 +77,7 @@ type Analyzer interface {
 	Check(context.Context, LintInput) (Diagnostics, error)
 }
 type Repository interface {
+	Snapshot(context.Context, int64, string, string) (Input, error)
 	Create(context.Context, int64, string, string, Input) (Strategy, error)
 	List(context.Context, int64, string, int) (Page, error)
 	Get(context.Context, int64, string) (Strategy, error)

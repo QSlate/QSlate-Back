@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"net/url"
 	"qslate/services/strategy/internal/domain"
+	"qslate/services/strategy/internal/marketplace"
 	"qslate/services/strategy/internal/platform/httpx"
 	"qslate/services/strategy/internal/platform/session"
 	"qslate/services/strategy/internal/platform/token"
 	"qslate/services/strategy/internal/service"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -26,10 +28,14 @@ type router struct {
 	svc    *service.Strategies
 	cfg    service.Config
 	logger *slog.Logger
+	market *marketplace.Client
 }
 
-func New(svc *service.Strategies, cfg service.Config, verifier token.Verifier, sessions Sessions, ready func(context.Context) error, logger *slog.Logger) http.Handler {
-	r := &router{svc, cfg, logger}
+func New(svc *service.Strategies, cfg service.Config, verifier token.Verifier, sessions Sessions, ready func(context.Context) error, logger *slog.Logger, markets ...*marketplace.Client) http.Handler {
+	r := &router{svc: svc, cfg: cfg, logger: logger}
+	if len(markets) > 0 {
+		r.market = markets[0]
+	}
 	mux := http.NewServeMux()
 	httpx.Probes(mux, ready)
 	private := func(pattern string, h http.HandlerFunc) {
@@ -50,14 +56,37 @@ func New(svc *service.Strategies, cfg service.Config, verifier token.Verifier, s
 	private("GET /strategies/{strategyId}/versions", r.versions)
 	private("POST /strategies/{strategyId}/restore", r.restore)
 	private("POST /strategies/lint", r.lint)
+	private("POST /catalogue/snapshot", r.snapshot)
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx, cancel := context.WithTimeout(req.Context(), 10*time.Second)
 		defer cancel()
 		mux.ServeHTTP(w, req.WithContext(ctx))
 	})
 }
+
+func (r *router) snapshot(w http.ResponseWriter, req *http.Request) {
+	var in struct {
+		ResourceID string `json:"resource_id"`
+		VersionID  string `json:"version_id"`
+	}
+	if !httpx.Decode(w, req, &in) {
+		return
+	}
+	v, err := r.svc.Snapshot(req.Context(), uid(req), in.ResourceID, in.VersionID)
+	if err != nil {
+		r.fail(w, req, err)
+		return
+	}
+	httpx.JSON(w, 200, map[string]any{"name": v.Name, "language": "python", "source": v.Source, "configuration": v.Parameters})
+}
 func (r *router) fail(w http.ResponseWriter, req *http.Request, err error) {
 	switch {
+	case errors.Is(err, marketplace.ErrUnavailable):
+		httpx.Error(w, 503, "marketplace_unavailable", "installed catalogue unavailable")
+	case errors.Is(err, marketplace.ErrNotFound):
+		httpx.Error(w, 404, "not_found", "installation not found")
+	case errors.Is(err, marketplace.ErrUnauthorized):
+		httpx.Error(w, 401, "unauthorized", "active session required")
 	case errors.Is(err, domain.ErrInvalid):
 		httpx.Error(w, 400, "invalid_input", err.Error())
 	case errors.Is(err, domain.ErrNotFound):
@@ -116,6 +145,29 @@ func (r *router) list(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	p, err := r.svc.List(req.Context(), uid(req), cursor, limit)
+	if err == nil && r.market != nil {
+		if limit == 0 {
+			limit = 100
+		}
+		remote, e := r.market.List(req.Context(), "strategy", cursor, limit)
+		if e != nil {
+			r.fail(w, req, e)
+			return
+		}
+		more := p.NextCursor != "" || remote.NextCursor != ""
+		for _, v := range remote.Items {
+			p.Items = append(p.Items, domain.Summary{ID: v.CatalogID, VersionID: v.VersionID, Revision: 1, Name: v.Name, ReadOnly: true, CreatedAt: v.InstalledAt, UpdatedAt: v.InstalledAt})
+		}
+		sort.Slice(p.Items, func(i, j int) bool { return p.Items[i].ID > p.Items[j].ID })
+		if len(p.Items) > limit {
+			p.Items = p.Items[:limit]
+			more = true
+		}
+		p.NextCursor = ""
+		if more && len(p.Items) > 0 {
+			p.NextCursor = p.Items[len(p.Items)-1].ID
+		}
+	}
 	r.respond(w, req, 200, p, err)
 }
 func (r *router) create(w http.ResponseWriter, req *http.Request) {
@@ -127,6 +179,14 @@ func (r *router) create(w http.ResponseWriter, req *http.Request) {
 	r.respond(w, req, 201, s, err)
 }
 func (r *router) get(w http.ResponseWriter, req *http.Request) {
+	if marketplace.IsReference(req.PathValue("strategyId")) {
+		v, e := r.market.Resolve(req.Context(), req.PathValue("strategyId"), "", false)
+		if e == nil && v.Kind != "strategy" {
+			e = marketplace.ErrNotFound
+		}
+		r.respond(w, req, 200, domain.Strategy{Summary: domain.Summary{ID: v.CatalogID, VersionID: v.VersionID, Revision: 1, Name: v.Name, ReadOnly: true, CreatedAt: v.InstalledAt, UpdatedAt: v.InstalledAt}, Source: v.Source, Parameters: v.Configuration}, e)
+		return
+	}
 	s, err := r.svc.Get(req.Context(), uid(req), req.PathValue("strategyId"))
 	r.respond(w, req, 200, s, err)
 }
@@ -145,6 +205,22 @@ func (r *router) versions(w http.ResponseWriter, req *http.Request) {
 	cursor, limit, err := pagination(req)
 	if err != nil {
 		r.fail(w, req, err)
+		return
+	}
+	if marketplace.IsReference(req.PathValue("strategyId")) {
+		if limit < 0 || limit > r.cfg.MaxVersionPageSize || (cursor != "" && cursor != "1") {
+			r.fail(w, req, domain.ErrInvalid)
+			return
+		}
+		v, e := r.market.Resolve(req.Context(), req.PathValue("strategyId"), "", false)
+		if e == nil && v.Kind != "strategy" {
+			e = marketplace.ErrNotFound
+		}
+		p := domain.VersionPage{Items: []domain.Version{}}
+		if cursor == "" {
+			p.Items = append(p.Items, domain.Version{VersionID: v.VersionID, Revision: 1, Input: domain.Input{Name: v.Name, Source: v.Source, Parameters: v.Configuration}, CreatedAt: v.InstalledAt})
+		}
+		r.respond(w, req, 200, p, e)
 		return
 	}
 	p, err := r.svc.Versions(req.Context(), uid(req), req.PathValue("strategyId"), cursor, limit)
