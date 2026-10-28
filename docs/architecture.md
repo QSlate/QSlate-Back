@@ -211,6 +211,14 @@ idempotence, cancellation et dead-letter. Les événements sont versionnés
 
 ## Prochaines tranches
 
+La section 7 est maintenant portée par Marketplace, avec module Go, image,
+configuration et PostgreSQL propres. Publication appelle Widgets/Strategy pour
+capturer une version détenue ; les consultations publiques et installations
+existantes ne dépendent pas de la disponibilité de ces services sources.
+Widgets/Strategy consultent à leur tour les installations via des adaptateurs
+HTTP locaux optionnels, sans accès SQL croisé et sans cycle de readiness.
+La section 6 reste différée à la demande de l'équipe.
+
 1. Brancher les formulaires du frontend, le cookie HttpOnly, les liens email
    et le callback OAuth2 ; valider les chemins/payloads proposés avec le frontend.
 2. Déployer/valider le contrôleur sandbox de preview ; Strategy fournit désormais

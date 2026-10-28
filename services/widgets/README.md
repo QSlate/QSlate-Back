@@ -21,7 +21,9 @@ suffixes and payload details are explicit implementation conventions.
 Lists return `{items,next_cursor?}` with lightweight summaries, never source.
 ID-descending keyset pagination defaults to 100 and accepts 1-1000 items.
 `installed` means globally configured installed definitions **plus the user's
-own custom definitions**, not marketplace purchases or per-account entitlements.
+own custom definitions**. With `MARKETPLACE_SERVICE_URL` configured, it also
+includes private, pinned Marketplace widget/indicator installations (`kind:
+marketplace`, ID `market-<itemId>`), fetched through an authenticated HTTP adapter.
 The default installed catalogue is empty, not fabricated sample widgets.
 
 Create/replace accepts `{name,language,source,configuration?}`. Languages are
@@ -55,7 +57,7 @@ new instances are stored, and preserves archived versions for already pinned
 instances. Source is never returned by resolution. This is a per-request check,
 not a distributed transaction or catalogue reservation; retained versions prevent
 source loss if a definition is archived concurrently. Widget-specific parameter
-schemas, marketplace entitlement policies and OPA remain separate work.
+schemas, paid entitlement policies and OPA remain separate work.
 
 ## Configuration
 

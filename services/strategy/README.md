@@ -141,6 +141,22 @@ Auth-sensitive-operation rate limit. Integration tests create/drop only their
 own `strategy_test_*` schema and check concurrent migrations, ownership, save
 conflicts, restore lineage, trigger immutability, persistence and checksum drift.
 
+## Marketplace installations
+
+When `MARKETPLACE_SERVICE_URL` is set, GET `/strategies` merges private drafts
+with installed community snapshots using ID-descending pagination. Their IDs
+are `market-<itemId>` and `read_only:true`. GET detail/history reads the pinned
+installation; PUT/restore/delete never modifies the author's draft. Fork by
+creating a new private strategy, or uninstall through Marketplace. The one-entry
+installed history describes the installed snapshot, not the author's private
+revision history. Unpublication does not remove existing installations.
+
+Only POST `/catalogue/snapshot` can provide an exact owned source version to
+Marketplace; it checks JWT, active session, owner and non-archived strategy.
+This internal route is absent from the gateway. No shared Go module or SQL.
+The optional installation dependency is not a readiness check, preventing a
+startup cycle and keeping standalone drafts usable when it is not configured.
+
 ## Build independence
 
 Like AREA, this folder owns `go.mod`, `go.sum`, Dockerfile, Makefile, configuration,

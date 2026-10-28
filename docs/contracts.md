@@ -5,7 +5,7 @@ vue des routes Auth/OAuth qui référence ce contrat (JSON est aussi du YAML val
 `streams.asyncapi.json` décrit les deux flux WebSocket ; ils ne sont pas encore
 implémentés. Les contrats distinguent explicitement `x-implementation: implemented`
 et `planned` ; les 17 endpoints Auth/OAuth, 11 endpoints Workspace, 7 endpoints
-Widgets et 9 endpoints Strategy sont enregistrés au gateway (44 sur 98 opérations REST). Preview est
+Widgets, 9 endpoints Strategy et 11 endpoints Marketplace sont enregistrés au gateway (55 sur 98 opérations REST). Preview est
 une admission vers un contrôleur externe, indisponible par défaut, pas un runtime
 d'exécution livré dans l'API.
 
@@ -242,6 +242,33 @@ JWT, session vivante et propriétaire sont contrôlés sur les neuf opérations.
 Voir [le service Strategy](../services/strategy/README.md) pour les contrats,
 choix de rétention et limites opérationnelles. Les suffixes/payloads reconstruits
 restent des propositions explicites ; le frontend Monaco n'est pas intégré ici.
+
+## Section 7 : Marketplace
+
+Les [11 opérations](marketplace.openapi.yaml) sont implémentées dans un service
+Go et une base autonomes. Les cinq lectures sont publiques ; publication,
+modification, dépublication, installation/désinstallation et avis nécessitent un
+JWT vérifié et une session Auth active. Les suffixes et payloads reconstruits
+restent des conventions explicites à valider avec le frontend.
+
+Un propriétaire publie une version immuable de son propre widget/indicateur ou
+de sa stratégie, vérifiée par HTTP auprès du service propriétaire. Les sources
+ne figurent jamais dans les métadonnées publiques. L'installation retourne un
+instantané privé épinglé ; une nouvelle version publiée ne met pas à jour les
+installations existantes. Les installations subsistent après dépublication.
+
+PATCH requiert `base_revision` et refuse les modifications concurrentes (409).
+`unlisted` signifie accessible par lien mais absent des recherches/sélections,
+pas privé. Les avis sont limités à un par compte et item, exigent une installation
+active et interdisent l'auto-évaluation. Les compteurs reflètent les installations
+actives et avis réels, pas des performances financières simulées.
+
+Les catégories, limites et IDs mis en avant sont configurés en fichier. Featured
+inclut aussi les items ayant des installations actives, triés par ID : ce n'est
+pas une analyse de tendances temporelles. Les contrats internes d'instantanés et
+d'installations ne sont jamais publiés au gateway. Voir [les règles et limites](../services/marketplace/README.md).
+
+La section 6 reste planifiée, sans nouvelle dépendance à un moteur de backtest.
 
 ## WebSocket
 

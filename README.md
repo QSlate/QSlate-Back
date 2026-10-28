@@ -1,6 +1,6 @@
 # QSlate-Back
 Backend de recherche quantitative QSlate. Le socle Go contient un gateway et
-les microservices Auth, Workspace, Widgets et Strategy. Le moteur de backtest existant est
+les microservices Auth, Workspace, Widgets, Strategy et Marketplace. Le moteur de backtest existant est
 en Python/FastAPI ; l'orchestration isolée, TimescaleDB et le Builder sont les
 prochaines étapes décrites dans [l'analyse d'architecture](docs/architecture.md).
 
@@ -12,6 +12,7 @@ services/auth/            comptes, sessions, OAuth2, emails et clés API
 services/workspace/       dashboards privés, grille et instances de widgets
 services/widgets/         catalogue, versions immuables et admission de preview
 services/strategy/        code Python, historique, restauration et diagnostics IDE
+services/marketplace/     catalogue communautaire, publications, installations et avis
 go.work                   workspace de développement, pas une dépendance de build
 templates/microservice/   service neutre, exécutable et générable
 cmd/                      initialisation locale et générateur
@@ -109,6 +110,14 @@ immuables ; le lint compile le texte sans l'exécuter dans un analyseur Python
 3.13 séparé, limité en ressources et sans secrets ni accès DB. Ce n'est pas une
 autorisation de sécurité ou un moteur de backtest. Voir [Strategy](services/strategy/README.md).
 
+La section 7 ajoute les 11 opérations [Marketplace](services/marketplace/README.md) :
+recherche publique, sélection configurée/populaire, catégories, publications de
+versions détenues, installations épinglées et avis. Les sources restent privées
+jusqu'à l'installation ; Widgets et Strategy lisent les droits par HTTP, sans
+partage de tables. Les stratégies installées sont en lecture seule. La section 6
+reste différée dans l'attente des précisions de l'équipe : aucun endpoint backtest
+supplémentaire n'est publié. Le gateway expose maintenant 55 opérations sur 98.
+
 Voir [le contrat Auth](docs/auth.openapi.yaml), [le contrat REST complet](docs/qslate.openapi.json)
 et [le service Workspace](services/workspace/README.md), ainsi que
 [les conventions et contrats proposés](docs/contracts.md). Les autres domaines
@@ -186,6 +195,9 @@ Les fichiers de configuration par défaut sont relatifs à ce dossier, pas à la
 
 | Variable | Composant | Défaut / contrainte |
 | --- | --- | --- |
+| `MARKETPLACE_CONFIG_FILE` | Marketplace | `config/marketplace.json` ; catégories, sélection et limites en fichier |
+| `MARKETPLACE_SERVICE_URL` | Gateway ; optionnel pour Widgets/Strategy | Origine HTTP(S) ; `http://localhost:8086` hors Docker |
+| `MARKETPLACE_DATABASE_PASSWORD` | Compose | Secret indépendant ajouté par `make init` sans rotation des autres |
 | `HTTP_ADDR` | Gateway / auth / workspace / widgets / strategy | `:8080` / `:8081` / `:8082` / `:8083` / `:8084` hors Docker |
 | `AUTH_SERVICE_URL` | Gateway, Workspace, Widgets et Strategy | Obligatoire pour les routes et la validation des sessions |
 | `STRATEGY_SERVICE_URL` | Gateway | Obligatoire pour les neuf routes Strategy |
