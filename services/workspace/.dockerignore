@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+.secrets
+AGENTS.[mM][dD]
+**/AGENTS.[mM][dD]
+go.work
+go.work.sum
+bin
+coverage*
+*.test
+__pycache__
+*.pyc

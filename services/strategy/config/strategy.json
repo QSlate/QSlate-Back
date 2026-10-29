@@ -1,0 +1,13 @@
+{
+  "max_source_bytes": 100000,
+  "max_parameters_bytes": 4096,
+  "max_body_bytes": 1048576,
+  "default_version_page_size": 10,
+  "max_version_page_size": 20,
+  "analysis": {
+    "enabled": true,
+    "url_env": "STRATEGY_ANALYZER_URL",
+    "timeout_seconds": 3,
+    "allow_insecure_http": true
+  }
+}

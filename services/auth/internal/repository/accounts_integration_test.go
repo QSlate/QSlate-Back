@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"qslate/internal/platform/token"
 	authhttp "qslate/services/auth/internal/http"
+	"qslate/services/auth/internal/platform/token"
 	"qslate/services/auth/internal/service"
 	"qslate/services/auth/migrations"
 )

@@ -54,13 +54,22 @@ Points précis améliorés dans cette tranche :
 | Couche DB appelle `log.Fatal`, DSN par champs avec SSL désactivé | Erreurs remontées au point d'entrée ; `DATABASE_URL`, pool limité, timeouts et contextes |
 | SQL dans `db/init`, exécuté seulement sur une base neuve | Migrations embarquées versionnées avec transaction, verrou concurrent et checksum |
 | Template lié à une fausse ressource users | Template neutre et générateur qui réécrit les imports, sans DB obligatoire |
-| Multiples modules/configs et Compose par service | Module Go racine pour cette phase : runtime technique partagé, commandes/images séparées, règles métier dans les `internal` de chaque service |
+| Modules et construction propres à chaque service | Même autonomie conservée : `go.mod`, checksums, Dockerfile et helpers techniques locaux ; Compose racine pour orchestrer le développement |
 | Secret partagé pour certaines routes internes | Pas de route interne publiée dans cette tranche ; futures identités de service dédiées, pas de confiance dans `X-User-ID` fourni par le client |
 
-Le module commun simplifie CI et maintenance dans ce repository unique.
-Il ne partage aucune entité métier ni repository entre services. Chaque
-binaire se construit et se déploie indépendamment. Une extraction en modules
-versionnés devient pertinente si les équipes/repositories divergent.
+Chaque service et le gateway sont désormais des modules Go indépendants, avec
+leur seul dossier comme contexte Docker. Le `go.work` racine facilite l'édition,
+mais les builds/tests imposent `GOWORK=off` et aucun `replace` local. Le socle
+technique est copié dans chaque `internal/platform`, comme les helpers locaux
+d'AREA ; aucune entité métier ni repository n'est partagé. Le template produit
+un nouveau module autonome, sans mettre à jour les services déjà créés.
+
+Les tests d'architecture compilent les composants après les avoir copiés dans
+des dossiers temporaires hors du dépôt, interdisent les imports racine/voisins
+et testent aussi un service généré. La CI et le Makefile parcourent explicitement
+les modules : `go test ./...` lancé à la racine ne couvre que les outils/tests
+transverses. Les mises à jour de sécurité des helpers doivent être reportées
+dans les copies concernées ; cette duplication contrôlée privilégie l'autonomie.
 
 ## Socle implémenté
 
@@ -77,10 +86,15 @@ flowchart LR
     Widgets -->|Session active via API| Auth
     Workspace -->|Résolution des versions par API| Widgets
     Widgets -.->|Optionnel, externe non livré| Sandbox[Contrôleur sandbox gVisor]
+    Gateway -->|9 routes privées| Strategy[Strategy Go]
+    Strategy --> StrategyDB[(PostgreSQL Strategy)]
+    Strategy -->|Session active via API| Auth
+    Strategy -->|Compilation sans exécution| Analyzer[Analyseur Python isolé]
     Private[Clé privée Ed25519] --> Auth
     Public[Clé publique Ed25519] --> Gateway
     Public --> Workspace
     Public --> Widgets
+    Public --> Strategy
 ```
 
 Le gateway publie les 14 opérations Auth sous `/qslate/v1/auth` et
@@ -113,7 +127,7 @@ Login/register mot de passe ─┐
 OAuth2 : config → adaptateur ┘
 ```
 
-L'adaptateur charge `services/auth/config/providers.json` (ou
+L'adaptateur charge `config/providers.json` depuis le dossier Auth (ou
 `OAUTH_PROVIDERS_FILE`) : endpoints, scopes, mapping de claims, callback,
 paramètres et références aux variables d'environnement des secrets. Il n'y
 a pas de sélection codée par nom de fournisseur. Les secrets Compose sont
@@ -139,7 +153,11 @@ la consommer plus tard via un contrat de transport explicite.
 
 Les choix précis et limites se trouvent dans [contracts.md](contracts.md).
 Le contrat REST recense 95 opérations issues du PDF + 3 extensions OAuth2 ;
-35 opérations d'API sont implémentées : 17 Auth/OAuth2, 11 Workspace et 7 Widgets.
+44 opérations d'API sont implémentées : 17 Auth/OAuth2, 11 Workspace, 7 Widgets
+et 9 Strategy. Strategy possède sa base, des versions immuables, l'import `.py`,
+la restauration optimiste et les diagnostics via un analyseur Python 3.13 séparé.
+Cet analyseur ne reçoit ni JWT ni secrets ni accès DB ; il compile sans exécuter,
+avec des limites CPU/mémoire/PID/temps et un réseau interne unique.
 La route de preview est une admission configurable vers une infrastructure
 gVisor externe, désactivée par défaut ; le runtime n'est pas livré ni validé ici.
 Les autres domaines
@@ -148,7 +166,8 @@ et les payloads reconstruits sont identifiés comme propositions.
 
 Le frontend et l'API Python conservent leur configuration actuelle : cette
 tranche n'inclut pas encore leur intégration au gateway. Les conteneurs
-Python ne sont pas ajoutés au Compose de l'authentification.
+du moteur de backtest ne sont pas ajoutés au Compose ; seul l'analyseur statique
+Python de Strategy est désormais livré dans la pile de développement.
 
 ## Découpage cible, à implémenter progressivement
 
@@ -176,7 +195,7 @@ flowchart TB
 | --- | --- | --- |
 | Auth | Comptes, mots de passe, sessions, identités OAuth2, préférences de compte, clés API Runner ; MFA à venir | Conserver clés de brokers ou stratégies |
 | Workspace | Projets, layouts, préférences de workspace, références de widgets | Transformer chaque widget UI en microservice |
-| Strategy | Code/version, paramètres, droits d'accès | Exécuter le code utilisateur |
+| Strategy | Code/versions immuables, paramètres, import, diagnostics via analyseur isolé | Exécuter le code utilisateur ou autoriser un run sur un simple résultat de lint |
 | Market data | Catalogue, import, providers, OHLCV, versions des datasets | Orchestrer un backtest |
 | Lab | Admission/quota, lifecycle des runs, référence de stratégie/dataset, résultats | Bloquer une requête interactive pendant un calcul |
 | Runner | Consommer un job, lancer/arrêter les workers, déposer les artefacts | Être un endpoint public qui exécute du Python dans son processus |
@@ -194,8 +213,9 @@ idempotence, cancellation et dead-letter. Les événements sont versionnés
 
 1. Brancher les formulaires du frontend, le cookie HttpOnly, les liens email
    et le callback OAuth2 ; valider les chemins/payloads proposés avec le frontend.
-2. Déployer/valider le contrôleur sandbox de preview, puis ajouter Strategy, en conservant la
-   propriété des ressources et l'isolation déjà appliquées dans Workspace.
+2. Déployer/valider le contrôleur sandbox de preview ; Strategy fournit désormais
+   CRUD/import/historique/restauration et diagnostics, pas l'exécution utilisateur.
+   Brancher Monaco et ajouter les politiques AST d'exécution séparément.
 3. Extraire Market data et Lab, figer stratégie/dataset par run.
 4. Introduire queue et workers séparés ; durcir l'exécution avec gVisor/Kata,
    quotas CPU/mémoire/temps, réseau contrôlé et séparation des secrets.

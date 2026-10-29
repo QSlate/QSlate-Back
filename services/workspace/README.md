@@ -70,7 +70,7 @@ distributed transaction; immutable versions are retained across archival.
 
 ## Configuration and deployment
 
-`WORKSPACE_LAYOUT_FILE` defaults to `services/workspace/config/layout.json` outside
+`WORKSPACE_LAYOUT_FILE` defaults to `config/layout.json` from the service directory outside
 Docker, `/app/layout.json` inside. Compose mounts the file read-only. Restart
 Workspace after changing it. The supplied file configures 12 columns, 1000 rows,
 128 instances and default 6×4 widgets. No widget-specific defaults are hardcoded.
@@ -87,7 +87,8 @@ are not claimed to authenticate workloads.
 
 ```bash
 make up
-go test -race ./services/workspace/... ./internal/platform/session
+make -C services/workspace test build
+make -C services/workspace docker-build
 TEST_DATABASE_URL='postgres://user:password@localhost:5432/test_db?sslmode=disable' \
   make test-integration
 API_BASE_URL=http://localhost:8080 MAILPIT_URL=http://localhost:8025 make test-e2e
@@ -97,10 +98,11 @@ API_BASE_URL=http://localhost:8080 MAILPIT_URL=http://localhost:8025 make test-e
 without rotating existing credentials. For a local Go process supply the
 Workspace-owned `DATABASE_URL`, `AUTH_SERVICE_URL=http://127.0.0.1:8081`,
 `WIDGETS_SERVICE_URL=http://127.0.0.1:8083` and the
-public key path, then run `go run ./services/workspace/cmd/service` (port 8082).
+public key path, then run `make -C services/workspace run` (port 8082).
 Integration tests create/remove only their own `workspace_test_*` schemas.
-Migrations use shared technical runner `internal/platform/migrate`, but SQL and
-migration histories remain private to each service.
+Migrations use the service-local runner `internal/platform/migrate`. Its module,
+technical helpers, SQL and history are independent: no sibling/root source imports
+or local module replacements are needed. Make targets enforce `GOWORK=off`.
 
 Tracked by [issue #65](https://github.com/QSlate/QSlate-Back/issues/65), branch
 `65-implement-workspace-service-and-dashboard-layout-endpoints`, based on the

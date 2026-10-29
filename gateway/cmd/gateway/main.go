@@ -7,13 +7,13 @@ import (
 	"qslate/gateway/internal/config"
 	handler "qslate/gateway/internal/http"
 	"qslate/gateway/internal/middleware"
-	common "qslate/internal/platform/config"
-	"qslate/internal/platform/httpx"
-	"qslate/internal/platform/token"
+	common "qslate/gateway/internal/platform/config"
+	"qslate/gateway/internal/platform/httpx"
+	"qslate/gateway/internal/platform/token"
 )
 
 func run(logger *slog.Logger) error {
-	routes, err := config.LoadRoutes(common.Env("ROUTES_FILE", "gateway/config/routes.json"))
+	routes, err := config.LoadRoutes(common.Env("ROUTES_FILE", "config/routes.json"))
 	if err != nil {
 		return err
 	}

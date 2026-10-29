@@ -50,3 +50,25 @@ func TestWidgetsCredentialUpgradeIsIndependentAndIdempotent(t *testing.T) {
 		t.Fatal("credential was rotated")
 	}
 }
+
+func TestStrategyCredentialDoesNotRotateExistingServiceSecrets(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".env")
+	original := []byte("AUTH_DATABASE_PASSWORD=keep-auth\nWORKSPACE_DATABASE_PASSWORD=keep-workspace\nWIDGETS_DATABASE_PASSWORD=keep-widgets\n")
+	if err := os.WriteFile(path, original, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureDatabaseCredential(path, "STRATEGY_DATABASE_PASSWORD"); err != nil {
+		t.Fatal(err)
+	}
+	first, _ := os.ReadFile(path)
+	if !bytes.HasPrefix(first, original) || bytes.Count(first, []byte("STRATEGY_DATABASE_PASSWORD=")) != 1 {
+		t.Fatal("existing credentials changed")
+	}
+	if err := ensureDatabaseCredential(path, "STRATEGY_DATABASE_PASSWORD"); err != nil {
+		t.Fatal(err)
+	}
+	second, _ := os.ReadFile(path)
+	if !bytes.Equal(first, second) {
+		t.Fatal("Strategy password rotated")
+	}
+}
