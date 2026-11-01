@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	"qslate/internal/platform/postgres"
 	"qslate/services/auth/internal/domain"
+	"qslate/services/auth/internal/platform/postgres"
 	"qslate/services/auth/migrations"
 )
 

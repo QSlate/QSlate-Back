@@ -68,6 +68,7 @@ type Previewer interface {
 	Submit(context.Context, PreviewRequest) (Job, error)
 }
 type Repository interface {
+	Snapshot(context.Context, int64, string, string) (Input, error)
 	SyncInstalled(context.Context, []Installed) error
 	Create(context.Context, int64, string, string, Input) (Widget, error)
 	List(context.Context, int64, bool, string, int) (Page, error)

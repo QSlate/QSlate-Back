@@ -1,0 +1,8 @@
+{
+  "max_source_bytes": 100000,
+  "max_body_bytes": 1048576,
+  "memory_bytes": 134217728,
+  "cpu_seconds": 2,
+  "wall_seconds": 2,
+  "socket_timeout_seconds": 5
+}

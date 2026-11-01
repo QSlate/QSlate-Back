@@ -24,9 +24,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: test -z "$(gofmt -l cmd internal gateway services templates tests)"
-      - run: go vet ./...
-      - run: go test -race ./...
+          cache-dependency-path: '**/go.sum'
+      - run: test -z "$(gofmt -l cmd gateway services templates tests)"
+      - run: make vet
+      - run: make test
       - run: make test-integration
         env:
           TEST_DATABASE_URL: postgres://qslate:ci-only-password@localhost:5432/qslate_auth_test?sslmode=disable

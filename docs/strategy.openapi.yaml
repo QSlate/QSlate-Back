@@ -1,0 +1,45 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "QSlate Strategy API",
+    "version": "1.0.0",
+    "description": "Nine section-5 operations; Python syntax checking is isolated from the Go API."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/qslate/v1/strategies": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1strategies"
+    },
+    "/qslate/v1/strategies/{strategyId}": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1strategies~1{strategyId}"
+    },
+    "/qslate/v1/strategies/import": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1strategies~1import"
+    },
+    "/qslate/v1/strategies/{strategyId}/versions": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1strategies~1{strategyId}~1versions"
+    },
+    "/qslate/v1/strategies/{strategyId}/restore": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1strategies~1{strategyId}~1restore"
+    },
+    "/qslate/v1/strategies/lint": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1strategies~1lint"
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "$ref": "qslate.openapi.json#/components/securitySchemes/bearerAuth"
+      }
+    }
+  }
+}

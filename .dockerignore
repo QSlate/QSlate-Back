@@ -1,4 +1,6 @@
 .git
+AGENTS.[mM][dD]
+**/AGENTS.[mM][dD]
 .env
 .env.*
 .secrets

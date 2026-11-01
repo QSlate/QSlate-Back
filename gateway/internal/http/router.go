@@ -14,8 +14,8 @@ import (
 
 	"qslate/gateway/internal/config"
 	"qslate/gateway/internal/middleware"
-	"qslate/internal/platform/httpx"
-	"qslate/internal/platform/token"
+	"qslate/gateway/internal/platform/httpx"
+	"qslate/gateway/internal/platform/token"
 )
 
 func New(routes []config.Route, verifier token.Verifier, logger *slog.Logger) (http.Handler, error) {

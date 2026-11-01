@@ -4,8 +4,8 @@
 vue des routes Auth/OAuth qui référence ce contrat (JSON est aussi du YAML valide).
 `streams.asyncapi.json` décrit les deux flux WebSocket ; ils ne sont pas encore
 implémentés. Les contrats distinguent explicitement `x-implementation: implemented`
-et `planned` ; les 17 endpoints Auth/OAuth, 11 endpoints Workspace et 7 endpoints
-Widgets sont enregistrés au gateway (35 sur 98 opérations REST). Preview est
+et `planned` ; les 17 endpoints Auth/OAuth, 11 endpoints Workspace, 7 endpoints
+Widgets, 9 endpoints Strategy et 11 endpoints Marketplace sont enregistrés au gateway (55 sur 98 opérations REST). Preview est
 une admission vers un contrôleur externe, indisponible par défaut, pas un runtime
 d'exécution livré dans l'API.
 
@@ -26,7 +26,7 @@ lorsqu'il partage provisoirement un binaire. Découpage proposé pour les 13 dom
 | `auth` | Auth : identité, sessions, préférences de compte, clés API |
 | `workspace` | Workspace : projets et layouts privés |
 | `widgets` | Catalogue et versions des widgets ; service et base indépendants |
-| `strategy` | Strategy : code et versions, sans exécution utilisateur |
+| `strategy` | Strategy : code/versions, import et diagnostics via analyseur isolé, sans exécution utilisateur |
 | `market-data` | Market data : catalogue, imports, datasets et ticks |
 | `lab` | Lab : runs, orchestration asynchrone et résultats |
 | `ai` | Builder : génération et explication, dépendances IA isolées |
@@ -38,6 +38,11 @@ lorsqu'il partage provisoirement un binaire. Découpage proposé pour les 13 dom
 | `system` | Composition légère au gateway : santé/version, aucune donnée métier |
 
 Les flux backtest et ticks appartiennent respectivement à Lab et Market data.
+Les services Go livrés possèdent chacun leur module, helpers et image autonomes.
+Le workspace Go et les contrats regroupés ici sont des outils de développement,
+pas des bibliothèques métier importées par les services. Les appels HTTP à Auth,
+au catalogue Widgets ou à l'analyseur restent des dépendances fonctionnelles
+explicites, distinctes de l'autonomie de compilation.
 Les futures routes restent hors de `gateway/config/routes.json` jusqu'à leur
 implémentation et aux tests d'autorisation. Aucun accès SQL inter-service :
 références d'IDs, appels contractuels et événements remplacent les jointures.
@@ -116,7 +121,7 @@ L'admission des clés sur les futurs endpoints Runner reste à implémenter.
 ## OAuth2 configurable
 
 Le service charge `OAUTH_PROVIDERS_FILE` au démarrage, par défaut
-`services/auth/config/providers.json`. Modifier ce fichier puis redémarrer Auth.
+`config/providers.json` depuis le dossier Auth. Modifier ce fichier puis redémarrer Auth.
 Le fournisseur d'exemple est désactivé : aucun identifiant factice n'est utilisé
 pour prétendre disposer d'une connexion fournisseur opérationnelle.
 
@@ -208,6 +213,62 @@ déployer et valider** ; le flow est désactivé par défaut. Les tests de dispa
 utilisent un serveur de test, pas une sandbox présentée comme opérationnelle.
 
 Voir [les limites et le protocole](../services/widgets/README.md).
+
+## Section 5 : stratégies et Mini IDE
+
+Les [neuf routes Strategy](strategy.openapi.yaml) ont un binaire et une base privés.
+POST crée un brouillon Python avec paramètres JSON opaques. PUT exige
+`base_version_id` et crée un instantané immuable ; 409 signale une modification
+concurrente. Restore exige la version actuelle et celle à restaurer, puis copie
+nom, source et paramètres dans une nouvelle révision sans modifier l'historique.
+Les listes sont sans source ; l'historique retourne les instantanés complets
+avec pagination par révision (10 par défaut, 20 maximum). DELETE archive.
+
+L'import multipart exige un seul nom et un seul fichier `.py` UTF-8, sans chemins
+ni fichiers temporaires. Le code peut être incomplet pendant l'édition : le lint
+est séparé. Sources de 100000 octets, paramètres de 4096, corps JSON/import de
+1 MiB ; les limites et le transport d'analyse sont configurés en fichiers.
+
+Le lint appelle un analyseur Python 3.13 fourni dans un conteneur distinct,
+sans secrets/DB, sur un réseau interne et avec limites CPU/mémoire/PID/temps.
+Chaque requête compile le texte dans un processus jetable sans exécuter l'objet
+code. Les erreurs de syntaxe/portée portent des positions Monaco 1-based/UTF-16.
+Un analyseur indisponible renvoie 503, jamais un faux résultat valide. Ce n'est
+ni du lint de style/type ni la politique AST d'exécution de la section 10.
+Un script dangereux peut être syntaxiquement valide ; `valid:true` n'autorise
+aucune exécution. Les tests E2E utilisent le vrai conteneur Python.
+
+JWT, session vivante et propriétaire sont contrôlés sur les neuf opérations.
+Voir [le service Strategy](../services/strategy/README.md) pour les contrats,
+choix de rétention et limites opérationnelles. Les suffixes/payloads reconstruits
+restent des propositions explicites ; le frontend Monaco n'est pas intégré ici.
+
+## Section 7 : Marketplace
+
+Les [11 opérations](marketplace.openapi.yaml) sont implémentées dans un service
+Go et une base autonomes. Les cinq lectures sont publiques ; publication,
+modification, dépublication, installation/désinstallation et avis nécessitent un
+JWT vérifié et une session Auth active. Les suffixes et payloads reconstruits
+restent des conventions explicites à valider avec le frontend.
+
+Un propriétaire publie une version immuable de son propre widget/indicateur ou
+de sa stratégie, vérifiée par HTTP auprès du service propriétaire. Les sources
+ne figurent jamais dans les métadonnées publiques. L'installation retourne un
+instantané privé épinglé ; une nouvelle version publiée ne met pas à jour les
+installations existantes. Les installations subsistent après dépublication.
+
+PATCH requiert `base_revision` et refuse les modifications concurrentes (409).
+`unlisted` signifie accessible par lien mais absent des recherches/sélections,
+pas privé. Les avis sont limités à un par compte et item, exigent une installation
+active et interdisent l'auto-évaluation. Les compteurs reflètent les installations
+actives et avis réels, pas des performances financières simulées.
+
+Les catégories, limites et IDs mis en avant sont configurés en fichier. Featured
+inclut aussi les items ayant des installations actives, triés par ID : ce n'est
+pas une analyse de tendances temporelles. Les contrats internes d'instantanés et
+d'installations ne sont jamais publiés au gateway. Voir [les règles et limites](../services/marketplace/README.md).
+
+La section 6 reste planifiée, sans nouvelle dépendance à un moteur de backtest.
 
 ## WebSocket
 

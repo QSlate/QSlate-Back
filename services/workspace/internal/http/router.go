@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"time"
 
-	"qslate/internal/platform/httpx"
-	"qslate/internal/platform/session"
-	"qslate/internal/platform/token"
 	"qslate/services/workspace/internal/domain"
+	"qslate/services/workspace/internal/platform/httpx"
+	"qslate/services/workspace/internal/platform/session"
+	"qslate/services/workspace/internal/platform/token"
 	"qslate/services/workspace/internal/service"
 )
 

@@ -6,20 +6,20 @@ import (
 	"os"
 	"time"
 
-	"qslate/internal/platform/config"
-	"qslate/internal/platform/httpx"
-	"qslate/internal/platform/postgres"
-	"qslate/internal/platform/session"
-	"qslate/internal/platform/token"
 	"qslate/services/workspace/internal/catalogue"
 	handler "qslate/services/workspace/internal/http"
+	"qslate/services/workspace/internal/platform/config"
+	"qslate/services/workspace/internal/platform/httpx"
+	"qslate/services/workspace/internal/platform/postgres"
+	"qslate/services/workspace/internal/platform/session"
+	"qslate/services/workspace/internal/platform/token"
 	"qslate/services/workspace/internal/repository"
 	"qslate/services/workspace/internal/service"
 	"qslate/services/workspace/migrations"
 )
 
 func run(logger *slog.Logger) error {
-	cfg, err := service.LoadConfig(config.Env("WORKSPACE_LAYOUT_FILE", "services/workspace/config/layout.json"))
+	cfg, err := service.LoadConfig(config.Env("WORKSPACE_LAYOUT_FILE", "config/layout.json"))
 	if err != nil {
 		return err
 	}

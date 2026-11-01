@@ -1,0 +1,47 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "QSlate Marketplace API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8086"
+    }
+  ],
+  "paths": {
+    "/marketplace/items": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1marketplace~1items"
+    },
+    "/marketplace/featured": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1marketplace~1featured"
+    },
+    "/marketplace/categories": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1marketplace~1categories"
+    },
+    "/marketplace/items/{itemId}": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1marketplace~1items~1{itemId}"
+    },
+    "/marketplace/items/{itemId}/install": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1marketplace~1items~1{itemId}~1install"
+    },
+    "/marketplace/items/{itemId}/installation": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1marketplace~1items~1{itemId}~1installation"
+    },
+    "/marketplace/items/{itemId}/reviews": {
+      "$ref": "../../docs/qslate.openapi.json#/paths/~1qslate~1v1~1marketplace~1items~1{itemId}~1reviews"
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "$ref": "../../docs/qslate.openapi.json#/components/securitySchemes/bearerAuth"
+      }
+    }
+  }
+}

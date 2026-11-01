@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"embed"
 
-	"qslate/internal/platform/migrate"
+	"qslate/services/workspace/internal/platform/migrate"
 )
 
 //go:embed *.sql

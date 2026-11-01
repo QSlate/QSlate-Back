@@ -46,7 +46,7 @@ func TestGatewayPublishesOnlyImplementedContract(t *testing.T) {
 		if !found || operation.Implementation != "implemented" {
 			t.Fatalf("route absent or planned in contract: %s", key)
 		}
-		if (strings.HasPrefix(route.Path, "/qslate/v1/users/") || strings.HasPrefix(route.Path, "/qslate/v1/dashboards") || strings.HasPrefix(route.Path, "/qslate/v1/widgets/")) && !route.AuthRequired {
+		if (strings.HasPrefix(route.Path, "/qslate/v1/users/") || strings.HasPrefix(route.Path, "/qslate/v1/dashboards") || strings.HasPrefix(route.Path, "/qslate/v1/widgets/") || strings.HasPrefix(route.Path, "/qslate/v1/strategies")) && !route.AuthRequired {
 			t.Fatalf("account route unprotected: %s", key)
 		}
 		if strings.HasPrefix(route.Path, "/qslate/v1/dashboards") && (route.Upstream != "${WORKSPACE_SERVICE_URL}" || route.TargetPath != strings.TrimPrefix(route.Path, "/qslate/v1")) {
@@ -54,6 +54,12 @@ func TestGatewayPublishesOnlyImplementedContract(t *testing.T) {
 		}
 		if strings.HasPrefix(route.Path, "/qslate/v1/widgets/") && (route.Upstream != "${WIDGETS_SERVICE_URL}" || route.TargetPath != strings.TrimPrefix(route.Path, "/qslate/v1")) {
 			t.Fatalf("invalid Widgets route mapping: %s", key)
+		}
+		if strings.HasPrefix(route.Path, "/qslate/v1/strategies") && (route.Upstream != "${STRATEGY_SERVICE_URL}" || route.TargetPath != strings.TrimPrefix(route.Path, "/qslate/v1")) {
+			t.Fatalf("invalid Strategy route mapping: %s", key)
+		}
+		if strings.HasPrefix(route.Path, "/qslate/v1/marketplace") && (route.Upstream != "${MARKETPLACE_SERVICE_URL}" || route.TargetPath != strings.TrimPrefix(route.Path, "/qslate/v1") || route.AuthRequired != (route.Method != "GET")) {
+			t.Fatalf("invalid Marketplace routing/authentication: %s", key)
 		}
 	}
 	count, implemented := 0, 0
@@ -80,8 +86,8 @@ func TestGatewayPublishesOnlyImplementedContract(t *testing.T) {
 			}
 		}
 	}
-	if count != 98 || implemented != 35 {
-		t.Fatalf("REST operations: %d total / %d implemented, expected 95+3 / 14+3+11+7", count, implemented)
+	if count != 98 || implemented != 55 {
+		t.Fatalf("REST operations: %d total / %d implemented, expected 95+3 / 14+3+11+7+9+11", count, implemented)
 	}
 }
 
@@ -94,6 +100,10 @@ func TestServiceViewsReferenceEveryCanonicalPath(t *testing.T) {
 		{"../../services/workspace/openapi.yaml", "/qslate/v1/dashboards", 7},
 		{"../../docs/widgets.openapi.yaml", "/qslate/v1/widgets/", 4},
 		{"../../services/widgets/openapi.yaml", "/qslate/v1/widgets/", 4},
+		{"../../docs/strategy.openapi.yaml", "/qslate/v1/strategies", 6},
+		{"../../services/strategy/openapi.yaml", "/qslate/v1/strategies", 6},
+		{"../../docs/marketplace.openapi.yaml", "/qslate/v1/marketplace", 7},
+		{"../../services/marketplace/openapi.yaml", "/qslate/v1/marketplace", 7},
 	} {
 		path := viewSpec.path
 		var view struct {

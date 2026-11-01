@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"qslate/internal/platform/httpx"
-	"qslate/internal/platform/token"
 	"qslate/services/auth/internal/domain"
+	"qslate/services/auth/internal/platform/httpx"
+	"qslate/services/auth/internal/platform/token"
 	"qslate/services/auth/internal/service"
 )
 

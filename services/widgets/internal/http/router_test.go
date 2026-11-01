@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"qslate/internal/platform/session"
 	"qslate/services/widgets/internal/domain"
+	"qslate/services/widgets/internal/platform/session"
 	"qslate/services/widgets/internal/service"
 	"strings"
 	"testing"
@@ -59,7 +59,7 @@ func routerFor(t *testing.T, active *sessions) http.Handler {
 func TestAllWidgetsOperationsRequireActiveIdentity(t *testing.T) {
 	active := &sessions{err: session.ErrUnauthorized}
 	handler := routerFor(t, active)
-	for _, path := range []string{"GET /widgets/installed", "GET /widgets/custom", "POST /widgets/custom", "GET /widgets/custom/id", "PUT /widgets/custom/id", "DELETE /widgets/custom/id", "POST /widgets/custom/id/preview", "POST /catalogue/resolve"} {
+	for _, path := range []string{"GET /widgets/installed", "GET /widgets/custom", "POST /widgets/custom", "GET /widgets/custom/id", "PUT /widgets/custom/id", "DELETE /widgets/custom/id", "POST /widgets/custom/id/preview", "POST /catalogue/resolve", "POST /catalogue/snapshot"} {
 		parts := strings.SplitN(path, " ", 2)
 		for _, bearer := range []string{"", "Bearer forged", "Bearer valid"} {
 			request := httptest.NewRequest(parts[0], parts[1], nil)
@@ -72,7 +72,7 @@ func TestAllWidgetsOperationsRequireActiveIdentity(t *testing.T) {
 			}
 		}
 	}
-	if active.calls != 8 {
+	if active.calls != 9 {
 		t.Fatal("unverified token reached Auth")
 	}
 	active.err = session.ErrUnavailable

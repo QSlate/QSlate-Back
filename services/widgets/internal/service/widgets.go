@@ -169,6 +169,16 @@ func (s *Widgets) Create(ctx context.Context, uid int64, in domain.Input) (domai
 	}
 	return s.repo.Create(ctx, uid, wid, version, in)
 }
+
+func (s *Widgets) Snapshot(ctx context.Context, uid int64, wid, version string) (domain.Input, error) {
+	if err := owner(ctx, uid); err != nil {
+		return domain.Input{}, err
+	}
+	if !customIDPattern.MatchString(wid) || !customIDPattern.MatchString(version) {
+		return domain.Input{}, domain.ErrNotFound
+	}
+	return s.repo.Snapshot(ctx, uid, wid, version)
+}
 func (s *Widgets) List(ctx context.Context, uid int64, installed bool, cursor string, limit int) (domain.Page, error) {
 	if err := owner(ctx, uid); err != nil {
 		return domain.Page{}, err
