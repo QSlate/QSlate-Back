@@ -1,0 +1,38 @@
+{
+  "job_id": "test_local_run",
+  "dataset": {
+    "source": "local_csv",
+    "ticker": "AAPL"
+  },
+  "strategy": {
+    "file_path": "simulator/examples/rsi_trend_strategy.py",
+    "parameters": {
+      "allocation_usd": 2000.0,
+      "rsi_oversold": 28.0,
+      "stop_loss_pct": 2.5
+    }
+  },
+  "marketplace_indicators": [
+    {
+      "name": "supertrend",
+      "file_path": "simulator/examples/supertrend_indicator.py",
+      "default_params": {
+        "period": 10,
+        "multiplier": 2.0
+      }
+    }
+  ],
+  "analytics_modules": [
+    {
+      "name": "risk_metrics",
+      "file_path": "simulator/examples/risk_analytics.py"
+    }
+  ],
+  "backtest": {
+    "initial_capital": 10000.0,
+    "window": 50,
+    "commission_rate": 0.0005,
+    "slippage_bps": 2.0
+  },
+  "output_dir": "simulator/output/test_local_run"
+}

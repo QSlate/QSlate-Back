@@ -32,6 +32,10 @@ htmlcov/
 # Local market datasets (existing exclusion)
 *.csv
 
+# Simulator execution outputs and artifacts
+artifacts/
+simulator/output/
+
 # Logs, editor temporary files and OS metadata
 *.log
 .idea/

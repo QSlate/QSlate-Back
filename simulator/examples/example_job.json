@@ -1,0 +1,23 @@
+{
+  "job_id": "job_demo_aapl_001",
+  "dataset": {
+    "source": "local_csv",
+    "ticker": "AAPL"
+  },
+  "strategy": {
+    "source_code": "from simulator import Strategy, Context\n\nclass RsiTrendStrategy(Strategy):\n    rsi_period: int = 14\n    sma_period: int = 50\n    rsi_oversold: float = 30.0\n    rsi_overbought: float = 70.0\n    allocation_usd: float = 1500.0\n    stop_loss_pct: float = 2.0\n    take_profit_pct: float = 5.0\n    timeout_bars: int = 48\n\n    def on_init(self, ctx: Context) -> None:\n        print(f'Starting backtest for {self.__class__.__name__}...')\n\n    def on_bar(self, ctx: Context) -> None:\n        rsi = ctx.indicators.rsi(self.rsi_period)\n        sma = ctx.indicators.sma(self.sma_period)\n        if len(rsi) < 55:\n            return\n        cur_rsi = rsi.iloc[-1]\n        cur_sma = sma.iloc[-1]\n        cur_price = ctx.price\n\n        if not ctx.has_position:\n            if cur_rsi < self.rsi_oversold and cur_price > cur_sma:\n                print(f'[{ctx.candle.timestamp}] Entry LONG at {cur_price:.2f}')\n                ctx.buy(\n                    usd_amount=self.allocation_usd,\n                    stop_loss=cur_price * (1.0 - self.stop_loss_pct / 100.0),\n                    take_profit=cur_price * (1.0 + self.take_profit_pct / 100.0),\n                    timeout_bars=self.timeout_bars\n                )\n        elif ctx.has_position:\n            if cur_rsi > self.rsi_overbought:\n                print(f'[{ctx.candle.timestamp}] Exit LONG at {cur_price:.2f}')\n                ctx.close_all(reason='RSI Overbought')\n\n    def on_stop(self, ctx: Context) -> None:\n        print(f'Backtest finished! Final equity: {ctx.equity:.2f}')\n",
+    "class_name": "RsiTrendStrategy",
+    "parameters": {
+      "allocation_usd": 2000.0,
+      "rsi_oversold": 28.0,
+      "stop_loss_pct": 2.5
+    }
+  },
+  "backtest": {
+    "initial_capital": 10000.0,
+    "window": 60,
+    "commission_rate": 0.0005,
+    "slippage_bps": 2.0
+  },
+  "output_dir": "simulator/output/job_demo_aapl_001"
+}

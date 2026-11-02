@@ -1,0 +1,37 @@
+{
+  "job_id": "job_marketplace_aapl_demo",
+  "dataset": {
+    "source": "local_csv",
+    "ticker": "AAPL"
+  },
+  "marketplace_indicators": [
+    {
+      "id": "ind_supertrend_v1",
+      "name": "supertrend",
+      "author": "alice_quant",
+      "source_code": "def calculate(data, period=10, multiplier=2.0):\n    atr = (data['High'] - data['Low']).rolling(period).mean()\n    hl2 = (data['High'] + data['Low']) / 2.0\n    return hl2 + (multiplier * atr)\n",
+      "default_params": {
+        "period": 10,
+        "multiplier": 2.0
+      }
+    }
+  ],
+  "strategy": {
+    "source_code": "from simulator import Strategy, Context\n\nclass MarketplaceDemoStrategy(Strategy):\n    def on_init(self, ctx: Context) -> None:\n        self.total_signals = 0\n\n    def on_bar(self, ctx: Context) -> None:\n        # 1. Calling marketplace indicator without importing it in strategy file!\n        st = ctx.indicators.supertrend(period=12, multiplier=1.8)\n        if len(st) < 15:\n            return\n        st_val = float(st.iloc[-1])\n\n        # 2. Record telemetry along the way (for UI charts)\n        ctx.record(\n            supertrend_value=st_val,\n            bar_range=float(ctx.candle.high - ctx.candle.low)\n        )\n\n        # 3. Simple entry/exit logic\n        if not ctx.has_position and ctx.price > st_val:\n            ctx.buy(usd_amount=1500.0, stop_loss=ctx.price * 0.97, take_profit=ctx.price * 1.06)\n            self.total_signals += 1\n        elif ctx.has_position and ctx.price < st_val:\n            ctx.close_all(reason='SuperTrend Break')\n\n    def on_stop(self, ctx: Context) -> dict:\n        return {'signals_count': self.total_signals}\n"
+  },
+  "analytics_modules": [
+    {
+      "id": "pack_risk_v1",
+      "name": "risk_metrics",
+      "author": "qslate_core",
+      "source_code": "def analyze(trades, equity_curve, market_data, initial_capital):\n    return {\n        'total_analyzed_bars': len(market_data),\n        'recorded_trades': len(trades)\n    }\n"
+    }
+  ],
+  "backtest": {
+    "initial_capital": 10000.0,
+    "window": 30,
+    "commission_rate": 0.0005,
+    "slippage_bps": 2.0
+  },
+  "output_dir": "simulator/output/job_marketplace_aapl_demo"
+}
