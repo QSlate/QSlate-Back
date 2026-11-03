@@ -1,6 +1,23 @@
 # QSlate Backtesting Engine & Job Runner
 
-A high-performance, deterministic, candle-by-candle Python simulation engine designed specifically to run as an **ephemeral job** within a modern cloud / microservices architecture.
+## QSlate Lab integration
+
+Imported from branch `18-implement-candle-by-candle-simulation-engine-in-python`
+at `fb63ed3180ac263019c1b6524da90826f6b316a2`. The original engine guide below
+is retained; deployed execution now uses `python -m simulator.lab_bridge` over
+stdin/NDJSON, orchestrated by the independent Go Lab worker. Optional progress
+callbacks and bounded log capture were added without changing trading math.
+See [Lab](../services/lab/README.md) for actual configuration/security requirements.
+Build from repository root with `make simulator-build`; the Docker build context
+is this directory. The image defaults to the Lab bridge, **not** the legacy CLI.
+To use the original local CLI explicitly, override the entrypoint with
+`python -m simulator.job.cli`; never run untrusted strategy code directly on
+your host. Tests use generated synthetic CSV fixtures, not developer market data.
+
+A candle-by-candle Python simulation engine designed to run as an ephemeral job.
+Its input snapshot can be reproduced, but arbitrary strategy code may still use
+time or other non-determinism. Financial calculations use the existing engine's
+floating-point implementation; integration does not certify accounting accuracy.
 
 ---
 
@@ -16,7 +33,7 @@ A high-performance, deterministic, candle-by-candle Python simulation engine des
   - [The Trading Context (`Context`) API](#the-trading-context-context-api)
 - [3. Marketplace Extensions & Telemetry](#3-marketplace-extensions--telemetry)
   - [Marketplace Indicators](#marketplace-indicators)
-  - [Real-Time Telemetry Streaming (`ctx.record`)](#real-time-telemetry-streaming-ctxrecord)
+  - [Buffered Per-Candle Telemetry (`ctx.record`)](#buffered-per-candle-telemetry-ctxrecord)
   - [External Post-Processing Analytics Modules](#external-post-processing-analytics-modules)
 - [4. How to Run Simulations](#4-how-to-run-simulations)
   - [A. Quick Interactive Local Run](#a-quick-interactive-local-run)
@@ -34,11 +51,22 @@ A high-performance, deterministic, candle-by-candle Python simulation engine des
 In the QSlate microservice ecosystem, user trading scripts contain arbitrary code. Running user code inside a long-lived, multi-tenant HTTP server creates severe security, memory leak, and noisy-neighbor issues.
 
 Instead, the simulator is designed as a **self-contained, ephemeral job runner**:
-- **Strict Isolation**: Runs inside a single-use container or sandboxed worker (Docker, Kubernetes Job, AWS ECS Task, or Google Cloud Run Job).
-- **Stateless & Deterministic**: Receives an immutable input configuration, executes the simulation deterministically, writes standardized output files, and exits with code `0` (success) or `1` (failure).
-- **Decoupled Orchestration**: The Go API gateway and job orchestrator manage queuing, user authentication, and resource limits without ever executing Python code directly.
+
+- **External isolation**: The orchestrator supplies the sandbox and resource/network
+  policy. The simulator does not sandbox itself; ordinary Docker alone is not a
+  security guarantee. Production Lab configuration requires runsc.
+- **Stateless execution**: The standalone CLI writes artifacts and exits with code
+  `0` (success) or `1` (failure). Lab instead uses an stdin/NDJSON bridge with a
+  result status; a completed bridge process can still report a failed strategy.
+- **Separate orchestration**: The Lab Go API admits jobs; a separate Go worker
+  owns execution. Neither the gateway nor the API executes user Python.
 
 ### Job Execution Lifecycle
+
+The diagram describes the standalone CLI/file-artifact workflow. The deployed
+Lab workflow uses `simulator.lab_bridge`, streams NDJSON to the Go worker and
+persists artifacts/events in Lab's PostgreSQL database instead of host-mounted
+output files.
 
 ```mermaid
 flowchart LR
@@ -78,7 +106,11 @@ flowchart LR
 
 ### Input Specification (Job Configuration)
 
-Jobs are configured via a JSON payload. In production, code strings are provided directly; in local development, paths to `.py` files can be referenced using `file_path`.
+The following is the trusted standalone CLI's `JobConfig`, not the public Lab
+REST payload. It accepts local `.py` paths or inline source. Lab accepts authorized
+resource/version IDs, freezes source and CSV bytes, and constructs its own private
+job envelope; callers cannot submit file paths, indicator modules or analytics
+modules through the current Lab `RunInput` contract.
 
 ```json
 {
@@ -125,15 +157,16 @@ Jobs are configured via a JSON payload. In production, code strings are provided
 ```
 
 #### Fields Description:
+
 | Section | Field | Description |
 |---|---|---|
-| `dataset` | `ticker` / `file_path` | Asset symbol or direct path to OHLCV data. |
+| `dataset` | `ticker` / `file_path` | Local CSV lookup symbol or explicit CSV path; no automatic market-data download. |
 | `strategy` | `file_path` / `source_code` | Path to `.py` file or raw Python source code containing a `Strategy` subclass. |
 | `strategy` | `parameters` | Key-value pairs dynamically injected into the strategy instance. |
 | `marketplace_indicators` | `name`, `source_code`/`file_path` | Independent indicator functions accessible via `ctx.indicators.<name>()`. |
 | `analytics_modules` | `name`, `source_code`/`file_path` | Post-processing analytics modules called after simulation finishes. |
 | `backtest` | `initial_capital` | Initial trading account balance in USD (e.g., `10000.0`). |
-| `backtest` | `window` | Number of historical bars visible to the strategy at each step. |
+| `backtest` | `window` | Previous bars in the rolling history; `on_bar` also sees the current bar, for up to `window + 1` rows. |
 | `backtest` | `commission_rate` | Trade fee percentage (e.g., `0.0005` = 0.05%). |
 | `backtest` | `slippage_bps` | Slippage in basis points (e.g., `2.0` = 0.02%). |
 | `output_dir` | `output_dir` | Destination directory where artifacts are saved. |
@@ -142,7 +175,9 @@ Jobs are configured via a JSON payload. In production, code strings are provided
 
 ### Output Specification (Standardized Artifacts)
 
-When execution completes, the job writes standard files to the designated `--output-dir`:
+The standalone CLI writes standard files to `--output-dir`. Examples below show
+illustrative formats, not expected performance measurements. Lab's bridge returns
+equivalent engine data to its worker; it does not use these output-directory paths.
 
 #### 1. `summary.json`
 Executive summary with status, execution time, core performance metrics, and custom metrics:
@@ -165,8 +200,8 @@ Executive summary with status, execution time, core performance metrics, and cus
     "max_drawdown_usd": 78.79,
     "sharpe_ratio": 0.599,
     "total_fees_usd": 20.0,
-    "strategy_metrics": { ... },
-    "analytics_modules": { ... }
+    "strategy_metrics": {},
+    "analytics_modules": {}
   },
   "error": null
 }
@@ -209,7 +244,9 @@ Time-series of account equity recorded at the close of every single bar:
 ```
 
 #### 4. `telemetry.json`
-Real-time custom metrics recorded during the simulation via `ctx.record(...)`. Allows frontend charts to render user-defined curves:
+Custom metrics recorded per candle via `ctx.record(...)`, buffered in memory and
+exported after the run. Lab delivers these series after completion, not live
+per-candle telemetry; only progress callbacks are live.
 ```json
 [
   {
@@ -224,7 +261,9 @@ Real-time custom metrics recorded during the simulation via `ctx.record(...)`. A
 Captured `print()` outputs and warnings emitted by user code during execution.
 
 #### 6. `error.json` *(Generated only if `status == "FAILED"`)*
-Structured diagnostic error message with filtered traceback indicating the exact user code failure.
+Structured exception message. The standalone runner includes the traceback in
+`logs.txt`; those CLI logs are not automatically redacted. Lab's Go worker bounds
+and credential-pattern-redacts captured logs before persistence.
 
 ---
 
@@ -258,7 +297,7 @@ class MyStrategy(Strategy):
 
         current_rsi = float(rsi.iloc[-1])
 
-        # Record real-time telemetry for frontend charts
+        # Record buffered per-candle telemetry for frontend charts
         ctx.record(rsi=current_rsi)
 
         # Place orders
@@ -267,7 +306,7 @@ class MyStrategy(Strategy):
                 usd_amount=self.allocation_usd,
                 stop_loss=ctx.price * (1.0 - self.stop_loss_pct / 100.0),
                 take_profit=ctx.price * (1.0 + self.take_profit_pct / 100.0),
-                timeout_bars=48  # Auto-close after 48 hours
+                timeout_bars=48  # Auto-close after 48 bars
             )
             self.signal_counter += 1
         elif ctx.has_position and current_rsi > 70:
@@ -288,9 +327,10 @@ At every candle, the `ctx` object provides:
 - **Market & Account Properties**:
   - `ctx.candle`: Current `Candle` object (`open`, `high`, `low`, `close`, `volume`, `timestamp`).
   - `ctx.price`: Current close price (`float`).
-  - `ctx.history`: `pandas.DataFrame` of the last `window` historical bars.
+  - `ctx.history`: During `on_bar`, a `pandas.DataFrame` of the previous `window`
+    bars plus the current bar. Initialization/stop contexts have their own windows.
   - `ctx.capital`: Available unencumbered cash.
-  - `ctx.equity`: Total account liquidation value (cash + unrealized PnL).
+  - `ctx.equity`: Portfolio-reported cash plus its currently recorded unrealized PnL.
   - `ctx.has_position`: `True` if at least one position is currently open.
   - `ctx.position`: First active `Position` or `None`.
   - `ctx.positions`: List of all currently open `Position` objects.
@@ -298,12 +338,15 @@ At every candle, the `ctx` object provides:
 - **Order Methods**:
   - `ctx.buy(usd_amount, leverage=1.0, stop_loss=None, take_profit=None, timeout_bars=None)`: Open a LONG position.
   - `ctx.sell(usd_amount, leverage=1.0, stop_loss=None, take_profit=None, timeout_bars=None)`: Open a SHORT position.
-  - `ctx.close(position_id=None, reason="Exit")`: Close a specific position or the primary position.
-  - `ctx.close_all(reason="Exit")`: Close all open positions immediately.
+  - `ctx.close(position_id=None, reason="Strategy Exit")`: Queue closure of a specific or primary position.
+  - `ctx.close_all(reason="Strategy Exit")`: Queue closure of all currently open positions.
+
+  Order calls queue actions; the engine processes them after `on_bar` returns.
+  They do not immediately mutate the context's position list.
 
 - **Indicator & Telemetry Helpers**:
   - `ctx.indicators`: Built-in indicators (`sma`, `ema`, `rsi`, `atr`, `bollinger`, `macd`) and all registered marketplace indicators.
-  - `ctx.record(**kwargs)`: Streams time-stamped metrics into `telemetry.json`.
+  - `ctx.record(**kwargs)`: Buffers timestamped metrics for later artifact export.
 
 ---
 
@@ -328,7 +371,7 @@ Inside your strategy, access it directly by name:
 st = ctx.indicators.supertrend(period=12, multiplier=1.8)
 ```
 
-### Real-Time Telemetry Streaming (`ctx.record`)
+### Buffered Per-Candle Telemetry (`ctx.record`)
 
 In-strategy telemetry allows you to export arbitrary numerical series or categorical regimes:
 ```python
@@ -338,7 +381,9 @@ ctx.record(
     atr_spread=float(ctx.candle.high - ctx.candle.low)
 )
 ```
-These values are saved to `telemetry.json` and can be visualized as sub-charts on the frontend.
+These values are saved to `telemetry.json` by the standalone CLI. In Lab they are
+persisted and delivered as telemetry events at completion. Frontend chart
+integration remains separate work.
 
 ### External Post-Processing Analytics Modules
 
@@ -364,13 +409,22 @@ The output will automatically appear under `metrics.analytics_modules.risk_analy
 
 ## 4. How to Run Simulations
 
+Run the following from the repository root with only trusted local code and
+operator-provided CSV data. Standalone examples are developer tools, not a secure
+multi-tenant execution path. Use the Lab service/worker for user submissions.
+For direct Python use, install `simulator/requirements.txt` in a dedicated virtual
+environment; root `requirements.txt` belongs to the legacy FastAPI prototype.
+
 ### A. Quick Interactive Local Run
 
-To test the entire engine with the example strategy and data without writing any JSON:
+To load the example configuration without writing JSON:
 
 ```bash
 python simulator/tests/run_test.py
 ```
+
+This requires your own local AAPL CSV; no dataset is bundled. Configure the CSV
+path/ticker in `simulator/examples/config_local.json` before running it.
 
 ### B. Testing with Your Own `.py` Strategy
 
@@ -378,16 +432,21 @@ Run your custom strategy file directly:
 
 ```bash
 python simulator/tests/run_test.py \
+  --config '' \
   --strategy path/to/my_strategy.py \
   --ticker AAPL \
+  --data-file path/to/prices.csv \
   --capital 20000 \
   --indicator supertrend=simulator/examples/supertrend_indicator.py \
   --analytics risk=simulator/examples/risk_analytics.py
 ```
 
+`--config ''` is required when using individual flags: the helper otherwise
+loads its default JSON configuration and ignores those flag overrides.
+
 ### C. Running as a Job via CLI
 
-This is the standard execution command used in production containers:
+This is the standalone file-artifact CLI, not the default Lab image entrypoint:
 
 ```bash
 python -m simulator.job.cli --config simulator/examples/config_local.json --output-dir ./results
@@ -395,32 +454,51 @@ python -m simulator.job.cli --config simulator/examples/config_local.json --outp
 
 You can also pipe the configuration directly from `stdin`:
 ```bash
-cat job_config.json | python -m simulator.job.cli --config - --output-dir ./results
+python -m simulator.job.cli --config - --output-dir ./results < job_config.json
 ```
 
 ### D. Running via Docker Container
 
-Build the lightweight container image:
+Build the image used by Lab:
 ```bash
-docker build -t qslate-simulator simulator/
+make simulator-build
 ```
 
-Run a job inside the container:
+The image defaults to `simulator.lab_bridge` and expects a private Lab envelope
+on stdin. Do not pass CLI `--config` arguments to that entrypoint. For a trusted
+standalone example only, explicitly override the entrypoint and mount a real
+local CSV plus a writable results directory:
 ```bash
-docker run --rm \
-  -v $(pwd)/simulator/examples:/app/config:ro \
-  -v $(pwd)/results:/app/results \
-  qslate-simulator \
-  --config /app/config/config_local.json \
-  --output-dir /app/results
+mkdir -p results
+docker run --rm --network none --read-only \
+  --user "$(id -u):$(id -g)" --cap-drop ALL \
+  --security-opt no-new-privileges --memory 512m --pids-limit 64 \
+  --tmpfs /work:rw,noexec,nosuid,nodev,size=64m,mode=1777 \
+  --mount "type=bind,src=$(pwd)/simulator/DATA_1H_AAPL.csv,dst=/app/DATA_1H_AAPL.csv,readonly" \
+  --mount "type=bind,src=$(pwd)/results,dst=/output" \
+  --entrypoint python qslate-simulator:fb63ed3-lab-v1 \
+  -B -m simulator.job.cli \
+  --config simulator/examples/config_local.json --output-dir /output
 ```
+
+The CSV must already exist and be readable by the selected UID. This trusted-local
+example uses host mounts and does not validate runsc isolation. Production Lab jobs
+use no host mounts or network and are created only by the configured Go worker.
 
 ---
 
 ## 5. Automated Test Suite
 
-Run the full automated test suite (portfolio math, auto-stops, slippage, engine, job runner, error isolation):
+Run the fixed-fixture engine tests and real Go-to-Python transport checks:
 
 ```bash
-python -m unittest discover simulator/tests
+make simulator-test
+make test-engine
 ```
+
+These targets build the image and use generated synthetic data, not downloaded
+market data. The transport test uses runc only for fixed repository-owned
+fixtures; production configuration rejects that runtime. They do not certify a
+runsc deployment or financial correctness. With simulator dependencies installed,
+the Python-only suite can also run with
+`python -B -m unittest discover -s simulator/tests -p 'test_*.py'`.

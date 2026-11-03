@@ -2,6 +2,7 @@ import unittest
 import tempfile
 import os
 import shutil
+from datetime import datetime, timedelta, timezone
 from simulator.job.schema import JobConfig, DatasetConfig, StrategyConfig
 from simulator.job.runner import run_job, save_job_artifacts
 
@@ -9,6 +10,14 @@ from simulator.job.runner import run_job, save_job_artifacts
 class TestJobRunner(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp()
+        self.dataset = os.path.join(self.temp_dir, "synthetic.csv")
+        # Synthetic unit-test data, independent of a developer's local AAPL CSV.
+        with open(self.dataset, "w", encoding="utf-8") as f:
+            f.write("Datetime,Open,High,Low,Close,Volume\n")
+            for i in range(50):
+                timestamp = datetime(2024, 1, 1, tzinfo=timezone.utc) + timedelta(hours=i)
+                price = 100 + i
+                f.write(f"{timestamp.isoformat()},{price},{price+2},{price-2},{price+1},1000\n")
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
@@ -24,7 +33,7 @@ class SimpleTestStrategy(Strategy):
 """
         config = JobConfig(
             job_id="unit_test_job_1",
-            dataset=DatasetConfig(ticker="AAPL"),
+            dataset=DatasetConfig(file_path=self.dataset),
             strategy=StrategyConfig(source_code=source),
             output_dir=self.temp_dir,
         )
@@ -48,7 +57,7 @@ class Buggy(Strategy):
 """
         config = JobConfig(
             job_id="unit_test_job_fail",
-            dataset=DatasetConfig(ticker="AAPL"),
+            dataset=DatasetConfig(file_path=self.dataset),
             strategy=StrategyConfig(source_code=source),
             output_dir=self.temp_dir,
         )
@@ -81,7 +90,7 @@ def analyze(trades, equity_curve, market_data, initial_capital):
 """
         config = JobConfig(
             job_id="test_mkp_telemetry",
-            dataset=DatasetConfig(ticker="AAPL"),
+            dataset=DatasetConfig(file_path=self.dataset),
             marketplace_indicators=[MarketplaceIndicator(name="custom_spread", source_code=ind_code)],
             strategy=StrategyConfig(source_code=strat_code),
             analytics_modules=[AnalyticsModule(name="pack_alpha", source_code=analytics_code)],
