@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+  # PRs only build the images (both platforms), nothing is pushed.
+  pull_request:
   workflow_dispatch:
 
 env:
@@ -13,6 +15,7 @@ env:
 jobs:
   build-simulator:
     name: Build simulator job runner
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -44,3 +47,60 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.ORG }}/runner:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # One image per deployable component, for amd64 (laptops, CI) and arm64 (ARM
+  # servers), tagged with the commit SHA. QSlate-Infra deploys these exact tags.
+  build-services:
+    name: Build ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: gateway
+            context: gateway
+          - name: auth
+            context: services/auth
+          - name: workspace
+            context: services/workspace
+          - name: widgets
+            context: services/widgets
+          - name: strategy
+            context: services/strategy
+          - name: strategy-analyzer
+            context: services/strategy/analyzer
+          - name: marketplace
+            context: services/marketplace
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU (arm64 emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push ${{ matrix.name }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.context }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.REGISTRY }}/${{ env.ORG }}/${{ matrix.name }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
