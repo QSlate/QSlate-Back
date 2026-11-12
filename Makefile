@@ -14,7 +14,7 @@ down:
 	docker compose down
 
 logs:
-	docker compose logs -f gateway auth workspace widgets strategy strategy-analyzer marketplace
+	docker compose logs -f gateway auth workspace widgets strategy strategy-analyzer marketplace lab
 
 test:
 	@set -e; for qslate_module in $(MODULES); do \
@@ -47,3 +47,15 @@ vet:
 
 new-service:
 	GOWORK=off go run ./cmd/new-service -name '$(NAME)'
+
+# These opt-in Docker tests execute only fixed repository-owned Python fixtures.
+.PHONY: simulator-build simulator-test test-engine
+SIMULATOR_IMAGE ?= qslate-simulator:fb63ed3-lab-v1
+simulator-build:
+	docker build -t $(SIMULATOR_IMAGE) ./simulator
+
+simulator-test: simulator-build
+	docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --memory 512m --pids-limit 64 --tmpfs /work:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=0700 --entrypoint python $(SIMULATOR_IMAGE) -B -m unittest discover -s /app/simulator/tests -p 'test_*.py'
+
+test-engine: simulator-build
+	cd services/lab && SIMULATOR_TEST_IMAGE=$(SIMULATOR_IMAGE) GOWORK=off go test -race -tags engine -count=1 ./internal/execution

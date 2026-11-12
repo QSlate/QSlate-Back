@@ -218,7 +218,9 @@ func TestWorkspaceThroughGateway(t *testing.T) {
 	a.call("POST", path+"/widgets", alice, map[string]string{"widget_id": first.ID, "widget_version_id": first.VersionID}, 404)
 	a.call("PATCH", path+"/widgets/"+w.InstanceID, alice, map[string]any{"configuration": map[string]any{}}, 200) // retained version on an existing instance
 	exerciseMarketplace(t, a, b, alice, bob)
+	exerciseLab(t, a, b, alice, bob)
 	b.call("POST", "/auth/logout", "", nil, 204)
+	b.call("GET", "/backtests", bob, nil, 401)
 	b.call("GET", "/dashboards/"+other.ID, bob, nil, 401)
 	b.call("GET", "/widgets/custom", bob, nil, 401)
 	b.call("GET", "/strategies", bob, nil, 401)
@@ -229,6 +231,7 @@ func TestWorkspaceThroughGateway(t *testing.T) {
 	a.call("POST", "/auth/forgot-password", "", map[string]string{"email": email}, 202)
 	reset := resetTokenFromMailpit(t, email)
 	a.call("POST", "/auth/reset-password", "", map[string]string{"token": reset, "password": "a new correct horse battery staple"}, 204)
+	a.call("GET", "/backtests", alice, nil, 401)
 	a.call("GET", path, alice, nil, 401)
 	a.call("GET", "/widgets/custom", alice, nil, 401)
 	a.call("GET", "/strategies", alice, nil, 401)

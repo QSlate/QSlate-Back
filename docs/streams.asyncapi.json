@@ -3,7 +3,7 @@
   "info": {
     "title": "QSlate v1 streams",
     "version": "1.0.0",
-    "description": "Proposed contracts for the two PDF WebSocket channels. Not implemented by the current runtime. Authenticate in the first frame within five seconds; no data is delivered before session and resource authorization. TLS is required in deployment. Access tokens are never sent in URL query strings."
+    "description": "Backtest streaming is implemented; market ticks remain planned. Authenticate in the first frame within five seconds. Never place tokens in URLs; deployment requires TLS."
   },
   "defaultContentType": "application/json",
   "servers": {
@@ -15,7 +15,7 @@
   },
   "channels": {
     "/qslate/v1/ws/backtests/{backtestId}/stream": {
-      "description": "Caller-owned run telemetry. Client authenticates, then optionally resumes with last_event_id. State snapshots are also available over REST.",
+      "description": "Owned durable events. First frame authenticate with optional after_event_id (integer). Resume by reconnecting. Unexpected application frames close 1008; WebSocket protocol ping/pong is supported. Logs and telemetry are buffered by the engine until completion; progress is live. Terminal backlog is drained before close 1000. Session revalidation every second. Global 128-stream cap per API replica.",
       "parameters": {
         "backtestId": {
           "schema": {
@@ -26,44 +26,16 @@
       "publish": {
         "operationId": "sendBacktestStreamCommand",
         "message": {
-          "oneOf": [
-            {
-              "$ref": "#/components/messages/Authenticate"
-            },
-            {
-              "$ref": "#/components/messages/Resume"
-            },
-            {
-              "$ref": "#/components/messages/Ping"
-            }
-          ]
+          "$ref": "#/components/messages/LabAuthenticate"
         }
       },
       "subscribe": {
         "operationId": "receiveBacktestStreamEvent",
         "message": {
-          "oneOf": [
-            {
-              "$ref": "#/components/messages/Authenticated"
-            },
-            {
-              "$ref": "#/components/messages/BacktestStatus"
-            },
-            {
-              "$ref": "#/components/messages/BacktestLog"
-            },
-            {
-              "$ref": "#/components/messages/Gap"
-            },
-            {
-              "$ref": "#/components/messages/Error"
-            },
-            {
-              "$ref": "#/components/messages/Pong"
-            }
-          ]
+          "$ref": "#/components/messages/LabEvent"
         }
-      }
+      },
+      "x-implementation": "implemented"
     },
     "/qslate/v1/ws/data/ticks": {
       "description": "Proposed complete path reconstructed from truncated PDF label. Subscribe/unsubscribe to at most 50 authorized symbols after authentication.",
@@ -107,7 +79,8 @@
             }
           ]
         }
-      }
+      },
+      "x-implementation": "planned"
     }
   },
   "components": {
@@ -524,6 +497,65 @@
             "message"
           ]
         }
+      },
+      "LabAuthenticate": {
+        "name": "lab.authenticate",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "authenticate"
+              ]
+            },
+            "access_token": {
+              "type": "string"
+            },
+            "after_event_id": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "type",
+            "access_token"
+          ]
+        }
+      },
+      "LabEvent": {
+        "name": "lab.event",
+        "payload": {
+          "type": "object",
+          "required": [
+            "event_id",
+            "type",
+            "data",
+            "created_at"
+          ],
+          "properties": {
+            "event_id": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "status",
+                "progress",
+                "logs",
+                "telemetry"
+              ]
+            },
+            "data": {
+              "type": "object"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
       }
     }
   },
@@ -539,6 +571,7 @@
     },
     "reconnect": "Exponential backoff with jitter; authenticate again. Resume available only within retained event history.",
     "backpressure": "Emit stream.gap.v1, then resynchronize through REST. Never grow per-client buffers without a bound.",
-    "revocation": "The stream service must revalidate live sessions and resource ownership; gateway signature verification alone is insufficient."
+    "revocation": "The stream service must revalidate live sessions and resource ownership; gateway signature verification alone is insufficient.",
+    "description": "Legacy policy below applies to planned ticks only. Implemented Lab uses the policy on its channel."
   }
 }

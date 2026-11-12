@@ -1,0 +1,42 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "QSlate Lab API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/qslate/v1/backtests/run": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1backtests~1run"
+    },
+    "/qslate/v1/backtests/{backtestId}/cancel": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1backtests~1{backtestId}~1cancel"
+    },
+    "/qslate/v1/backtests/{backtestId}/status": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1backtests~1{backtestId}~1status"
+    },
+    "/qslate/v1/backtests": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1backtests"
+    },
+    "/qslate/v1/backtests/{backtestId}/summary": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1backtests~1{backtestId}~1summary"
+    },
+    "/qslate/v1/backtests/{backtestId}/trades": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1backtests~1{backtestId}~1trades"
+    },
+    "/qslate/v1/backtests/{backtestId}/equity-curve": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1backtests~1{backtestId}~1equity-curve"
+    },
+    "/qslate/v1/backtests/{backtestId}/logs": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1backtests~1{backtestId}~1logs"
+    },
+    "/qslate/v1/backtests/{backtestId}": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1backtests~1{backtestId}"
+    },
+    "/qslate/v1/backtests/compare": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1backtests~1compare"
+    },
+    "/qslate/v1/backtests/optimize": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1backtests~1optimize"
+    }
+  }
+}
