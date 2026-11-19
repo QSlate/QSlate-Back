@@ -32,6 +32,7 @@ jobs:
         env:
           TEST_DATABASE_URL: postgres://qslate:ci-only-password@localhost:5432/qslate_auth_test?sslmode=disable
       - run: make build
+      - run: make market-parser-test
       - run: make up
       - run: make test-e2e
         env:

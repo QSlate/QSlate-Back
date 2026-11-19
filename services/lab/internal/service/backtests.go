@@ -31,17 +31,25 @@ type Repository interface {
 type Strategies interface {
 	Snapshot(context.Context, string, string) (domain.Snapshot, error)
 }
+type Datasets interface {
+	Snapshot(context.Context, string, string) (string, string, error)
+}
 type Lab struct {
 	Repo       Repository
 	strategies Strategies
 	Config     Config
+	datasets   Datasets
 }
 
-func New(repo Repository, strategies Strategies, c Config) (*Lab, error) {
+func New(repo Repository, strategies Strategies, c Config, datasets ...Datasets) (*Lab, error) {
 	if e := c.Validate(); e != nil {
 		return nil, e
 	}
-	return &Lab{Repo: repo, strategies: strategies, Config: c}, nil
+	l := &Lab{Repo: repo, strategies: strategies, Config: c}
+	if len(datasets) > 0 {
+		l.datasets = datasets[0]
+	}
+	return l, nil
 }
 func hash(b []byte) string { s := sha256.Sum256(b); return hex.EncodeToString(s[:]) }
 func (c Config) ExecutionHash() string {
@@ -128,7 +136,15 @@ func (l *Lab) frozen(ctx context.Context, owner int64, in domain.RunInput) (doma
 	if e = validate(&in); e != nil {
 		return out, e
 	}
-	csv, sum, e := l.Config.Dataset(owner, in.DatasetID, in.DatasetVersionID, in.Window)
+	var csv, sum string
+	if l.datasets != nil {
+		csv, sum, e = l.datasets.Snapshot(ctx, in.DatasetID, in.DatasetVersionID)
+		if e == nil {
+			e = validateCSV(csv, in.Window, l.Config.MaxDatasetRows)
+		}
+	} else {
+		csv, sum, e = l.Config.Dataset(owner, in.DatasetID, in.DatasetVersionID, in.Window)
+	}
 	if e != nil {
 		return out, e
 	}
