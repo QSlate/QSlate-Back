@@ -4862,7 +4862,7 @@
           "market-data"
         ],
         "x-owner": "market-data",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "200": {
@@ -4870,7 +4870,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Page"
+                  "$ref": "#/components/schemas/SymbolPage"
                 }
               }
             }
@@ -4899,6 +4899,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Parser, data source or session authority unavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -4920,6 +4923,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
           }
         ]
       }
@@ -4932,7 +4943,7 @@
           "market-data"
         ],
         "x-owner": "market-data",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "200": {
@@ -4968,6 +4979,9 @@
           },
           "502": {
             "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "description": "Parser, data source or session authority unavailable"
           },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
@@ -5022,9 +5036,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "version_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
-        "description": "start/end are RFC3339 UTC instants; bounds and resolution are explicit. Financial decimals are strings."
+        "description": "Owner-authorized imported datasets use symbol custom:<datasetId>. Optional version_id selects an older ready version. start/end are RFC3339; range is [start,end), maximum 366 days. Resolutions raw/1m/5m/15m/1h/1d. Cursor is the returned RFC3339 bucket/row timestamp. External symbols require an explicitly configured trusted feed; no generated data."
       }
     },
     "/qslate/v1/data/custom/upload": {
@@ -5035,7 +5056,7 @@
           "market-data"
         ],
         "x-owner": "market-data",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "201": {
@@ -5072,6 +5093,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Parser, data source or session authority unavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -5101,7 +5125,7 @@
             }
           }
         },
-        "description": "CSV or Parquet, maximum proposed upload size 100 MiB. MIME/extension and decoded schema validation required."
+        "description": "Private bounded CSV/Parquet multipart upload. Default 8 MiB, configurable up to 100 MiB; decoded row/field/resource limits also apply. Inspection runs in a separate limited parser. No temporary user-named host files."
       }
     },
     "/qslate/v1/data/custom": {
@@ -5112,7 +5136,7 @@
           "market-data"
         ],
         "x-owner": "market-data",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "pdf-visible",
         "responses": {
           "200": {
@@ -5149,6 +5173,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Parser, data source or session authority unavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -5182,7 +5209,7 @@
           "market-data"
         ],
         "x-owner": "market-data",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "200": {
@@ -5219,6 +5246,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Parser, data source or session authority unavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -5243,7 +5273,7 @@
           "market-data"
         ],
         "x-owner": "market-data",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "204": {
@@ -5273,6 +5303,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Parser, data source or session authority unavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -5299,7 +5332,7 @@
           "market-data"
         ],
         "x-owner": "market-data",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "200": {
@@ -5342,6 +5375,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Parser, data source or session authority unavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -5367,7 +5403,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Requires base_version_id. Creates a new immutable mapping version; old ready versions remain addressable until dataset deletion."
       }
     },
     "/qslate/v1/data/custom/{datasetId}/validate": {
@@ -5378,7 +5415,7 @@
           "market-data"
         ],
         "x-owner": "market-data",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "proposed-from-truncated-label",
         "responses": {
           "202": {
@@ -5386,7 +5423,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Job"
+                  "$ref": "#/components/schemas/DatasetValidationJob"
                 }
               }
             }
@@ -5414,6 +5451,9 @@
           },
           "502": {
             "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "description": "Parser, data source or session authority unavailable"
           },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
@@ -9099,6 +9139,36 @@
             "items": {
               "type": "string"
             }
+          },
+          "preview": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "mapping": {
+            "$ref": "#/components/schemas/ColumnMapping"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "required": [
@@ -9157,13 +9227,18 @@
               "us",
               "ns"
             ]
+          },
+          "base_version_id": {
+            "type": "string",
+            "description": "Current version from dataset detail; required for optimistic mapping updates."
           }
         },
         "required": [
           "timestamp_column",
           "timezone",
           "columns",
-          "timestamp_unit"
+          "timestamp_unit",
+          "base_version_id"
         ]
       },
       "History": {
@@ -9850,6 +9925,70 @@
           },
           "next_cursor": {
             "type": "string"
+          }
+        }
+      },
+      "DatasetValidationJob": {
+        "type": "object",
+        "required": [
+          "job_id",
+          "dataset_id",
+          "version_id",
+          "status"
+        ],
+        "properties": {
+          "job_id": {
+            "type": "string"
+          },
+          "dataset_id": {
+            "type": "string"
+          },
+          "version_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed"
+            ]
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "SymbolPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "symbol": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "dataset_id": {
+                  "type": "string"
+                },
+                "version_id": {
+                  "type": "string"
+                },
+                "live": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
           }
         }
       }

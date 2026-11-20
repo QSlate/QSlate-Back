@@ -1,0 +1,30 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "QSlate Market Data API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/qslate/v1/data/symbols": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1data~1symbols"
+    },
+    "/qslate/v1/data/history": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1data~1history"
+    },
+    "/qslate/v1/data/custom/upload": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1data~1custom~1upload"
+    },
+    "/qslate/v1/data/custom": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1data~1custom"
+    },
+    "/qslate/v1/data/custom/{datasetId}": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1data~1custom~1{datasetId}"
+    },
+    "/qslate/v1/data/custom/{datasetId}/mapping": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1data~1custom~1{datasetId}~1mapping"
+    },
+    "/qslate/v1/data/custom/{datasetId}/validate": {
+      "$ref": "qslate.openapi.json#/paths/~1qslate~1v1~1data~1custom~1{datasetId}~1validate"
+    }
+  }
+}

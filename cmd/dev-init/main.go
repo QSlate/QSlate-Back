@@ -76,6 +76,9 @@ func initialize() error {
 	if err := ensureDatabaseCredential(".env", "LAB_DATABASE_PASSWORD"); err != nil {
 		return err
 	}
+	if err := ensureDatabaseCredential(".env", "MARKET_DATA_DATABASE_PASSWORD"); err != nil {
+		return err
+	}
 	fmt.Println("Development credentials ready (.env and .secrets; existing values preserved)")
 	return nil
 }

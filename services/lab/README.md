@@ -38,6 +38,11 @@ Receipts currently have no automatic TTL; operational retention is future work.
 Optional `parameters` override the pinned strategy configuration. `window` defaults
 to 20, with optional `commission_rate`, `slippage_bps` and `class_name`.
 Only `execution_target: "cloud"` is implemented; `local` requires section 12.
+When `MARKET_DATA_SERVICE_URL` is configured (the Compose default), Lab retrieves
+the exact ready, owner-authorized dataset version from Market Data's private
+`POST /catalogue/dataset-snapshot`. CSV bytes and SHA-256 are verified and frozen
+in the run before enqueueing. A remote error never falls back to local files.
+Without this origin, the standalone operator-managed CSV adapter remains available.
 Installed Marketplace strategies resolve through Strategy's authenticated
 `POST /catalogue/execution-snapshot`, requiring an active pinned installation.
 Old retained installation grants alone do not authorize new executions.
@@ -95,18 +100,19 @@ fresh ready worker returns 503 instead of generating mocked results.
 
 1. Provision an isolated Docker daemon with the `runsc` runtime externally.
 2. At repository root, run `make init simulator-build` on that execution daemon.
-3. Register real versioned CSV files under `services/lab/data/` in the JSON config
-   using ID, version, relative file, SHA-256 and optional `owner_id` (0 = shared).
-   See `data/README.md`. Arbitrary request paths or downloads are never accepted.
+3. Upload CSV/Parquet through Market Data, configure its column mapping and
+   validate/index it. Use its ready dataset ID/version in the run. For standalone
+   Lab without `MARKET_DATA_SERVICE_URL`, register operator-managed CSV files in
+   Lab JSON instead; see `data/README.md`. User-controlled paths are never accepted.
 4. Set `execution.enabled: true`, choose the image and configure allowed origins.
 5. Set `LAB_DOCKER_SOCKET` and `LAB_DOCKER_GID` to the dedicated daemon socket/group,
    then run `docker compose --profile lab-execution up --build -d`.
 
 The default Compose stack starts Lab API/database only. Missing runtime/image/data
 fails closed; `runsc` cannot be replaced with `runc` in production configuration.
-CSV is a temporary operator-managed data adapter until section 8 exists, not a
-fake Market Data service. CSV bytes and source are frozen before queue admission;
-later file edits fail the configured checksum for new requests.
+Section 8 owns ingestion, metadata and normalized time-series storage. Lab keeps
+an authorized snapshot so dataset deletion/remapping cannot rewrite existing runs.
+The optional standalone file adapter is not used when the Market Data origin is set.
 
 ## WebSocket
 

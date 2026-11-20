@@ -65,5 +65,14 @@
   {"method":"DELETE","path":"/qslate/v1/backtests/{backtestId}","upstream":"${LAB_SERVICE_URL}","target_path":"/backtests/{backtestId}","auth_required":true,"rate_limited":false},
   {"method":"POST","path":"/qslate/v1/backtests/compare","upstream":"${LAB_SERVICE_URL}","target_path":"/backtests/compare","auth_required":true,"rate_limited":false},
   {"method":"POST","path":"/qslate/v1/backtests/optimize","upstream":"${LAB_SERVICE_URL}","target_path":"/backtests/optimize","auth_required":true,"rate_limited":false},
-  {"method":"GET","path":"/qslate/v1/ws/backtests/{backtestId}/stream","upstream":"${LAB_SERVICE_URL}","target_path":"/ws/backtests/{backtestId}/stream","auth_required":false,"rate_limited":false}
+  {"method":"GET","path":"/qslate/v1/ws/backtests/{backtestId}/stream","upstream":"${LAB_SERVICE_URL}","target_path":"/ws/backtests/{backtestId}/stream","auth_required":false,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/data/symbols","upstream":"${MARKET_DATA_SERVICE_URL}","target_path":"/data/symbols","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/data/history","upstream":"${MARKET_DATA_SERVICE_URL}","target_path":"/data/history","auth_required":true,"rate_limited":false},
+  {"method":"POST","path":"/qslate/v1/data/custom/upload","upstream":"${MARKET_DATA_SERVICE_URL}","target_path":"/data/custom/upload","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/data/custom","upstream":"${MARKET_DATA_SERVICE_URL}","target_path":"/data/custom","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/data/custom/{datasetId}","upstream":"${MARKET_DATA_SERVICE_URL}","target_path":"/data/custom/{datasetId}","auth_required":true,"rate_limited":false},
+  {"method":"DELETE","path":"/qslate/v1/data/custom/{datasetId}","upstream":"${MARKET_DATA_SERVICE_URL}","target_path":"/data/custom/{datasetId}","auth_required":true,"rate_limited":false},
+  {"method":"POST","path":"/qslate/v1/data/custom/{datasetId}/mapping","upstream":"${MARKET_DATA_SERVICE_URL}","target_path":"/data/custom/{datasetId}/mapping","auth_required":true,"rate_limited":false},
+  {"method":"POST","path":"/qslate/v1/data/custom/{datasetId}/validate","upstream":"${MARKET_DATA_SERVICE_URL}","target_path":"/data/custom/{datasetId}/validate","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/ws/data/ticks","upstream":"${MARKET_DATA_SERVICE_URL}","target_path":"/ws/data/ticks","auth_required":false,"rate_limited":false}
 ]

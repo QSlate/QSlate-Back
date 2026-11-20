@@ -1,0 +1,7 @@
+{
+ "max_upload_bytes":8388608,"max_rows":20000,"max_datasets":20,
+ "max_owner_bytes":67108864,"max_versions":5,"max_page_size":1000,
+ "parser_timeout_seconds":6,"max_snapshot_bytes":4194304,"require_timescale":true,
+ "allowed_origins":["http://localhost:3000"],
+ "live":{"enabled":false,"origin_env":"MARKET_DATA_FEED_URL","token_env":"MARKET_DATA_FEED_TOKEN","allow_insecure_http":false,"poll_seconds":2,"max_symbols":10,"max_streams":32,"symbols":[]}
+}

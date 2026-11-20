@@ -219,6 +219,7 @@ func TestWorkspaceThroughGateway(t *testing.T) {
 	a.call("PATCH", path+"/widgets/"+w.InstanceID, alice, map[string]any{"configuration": map[string]any{}}, 200) // retained version on an existing instance
 	exerciseMarketplace(t, a, b, alice, bob)
 	exerciseLab(t, a, b, alice, bob)
+	exerciseMarketData(t, a, b, alice, bob)
 	b.call("POST", "/auth/logout", "", nil, 204)
 	b.call("GET", "/backtests", bob, nil, 401)
 	b.call("GET", "/dashboards/"+other.ID, bob, nil, 401)

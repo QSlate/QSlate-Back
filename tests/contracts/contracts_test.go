@@ -37,6 +37,12 @@ func TestGatewayPublishesOnlyImplementedContract(t *testing.T) {
 	readJSON(t, "../../gateway/config/routes.json", &routes)
 	published := map[string]bool{}
 	for _, route := range routes {
+		if route.Path == "/qslate/v1/ws/data/ticks" {
+			if route.Method != "GET" || route.Upstream != "${MARKET_DATA_SERVICE_URL}" || route.TargetPath != "/ws/data/ticks" || route.AuthRequired {
+				t.Fatal("invalid first-frame authenticated tick stream")
+			}
+			continue
+		}
 		if route.Path == "/qslate/v1/ws/backtests/{backtestId}/stream" {
 			if route.Method != "GET" || route.Upstream != "${LAB_SERVICE_URL}" || route.TargetPath != "/ws/backtests/{backtestId}/stream" || route.AuthRequired {
 				t.Fatal("invalid first-frame authenticated Lab stream route")
@@ -48,6 +54,9 @@ func TestGatewayPublishesOnlyImplementedContract(t *testing.T) {
 			t.Fatalf("duplicate route %s", key)
 		}
 		published[key] = true
+		if strings.HasPrefix(route.Path, "/qslate/v1/data/") && (!route.AuthRequired || route.Upstream != "${MARKET_DATA_SERVICE_URL}" || route.TargetPath != strings.TrimPrefix(route.Path, "/qslate/v1")) {
+			t.Fatal("invalid Market Data routing")
+		}
 		if strings.HasPrefix(route.Path, "/qslate/v1/backtests") && (!route.AuthRequired || route.Upstream != "${LAB_SERVICE_URL}" || route.TargetPath != strings.TrimPrefix(route.Path, "/qslate/v1")) {
 			t.Fatal("invalid Lab route/authentication")
 		}
@@ -95,8 +104,8 @@ func TestGatewayPublishesOnlyImplementedContract(t *testing.T) {
 			}
 		}
 	}
-	if count != 98 || implemented != 66 {
-		t.Fatalf("REST operations: %d total / %d implemented, expected 98 / 66", count, implemented)
+	if count != 98 || implemented != 74 {
+		t.Fatalf("REST operations: %d total / %d implemented, expected 98 / 74", count, implemented)
 	}
 }
 
@@ -114,6 +123,8 @@ func TestServiceViewsReferenceEveryCanonicalPath(t *testing.T) {
 		{"../../docs/marketplace.openapi.yaml", "/qslate/v1/marketplace", 7},
 		{"../../services/marketplace/openapi.yaml", "/qslate/v1/marketplace", 7},
 		{"../../docs/lab.openapi.yaml", "/qslate/v1/backtests", 11},
+		{"../../docs/market-data.openapi.yaml", "/qslate/v1/data/", 7},
+		{"../../services/market-data/openapi.yaml", "/qslate/v1/data/", 7},
 		{"../../services/lab/openapi.yaml", "/qslate/v1/backtests", 11},
 	} {
 		path := viewSpec.path

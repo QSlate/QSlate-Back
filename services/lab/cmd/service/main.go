@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	handler "qslate/services/lab/internal/http"
+	"qslate/services/lab/internal/marketdata"
 	"qslate/services/lab/internal/platform/config"
 	"qslate/services/lab/internal/platform/httpx"
 	"qslate/services/lab/internal/platform/postgres"
@@ -48,7 +49,15 @@ func run(logger *slog.Logger) error {
 	if e = migrations.Apply(ctx, db); e != nil {
 		return e
 	}
-	svc, e := service.New(repository.New(db), strategies, cfg)
+	datasets, e := marketdata.New(os.Getenv("MARKET_DATA_SERVICE_URL"), cfg.MaxDatasetBytes)
+	if e != nil {
+		return e
+	}
+	var sources []service.Datasets
+	if datasets != nil {
+		sources = append(sources, datasets)
+	}
+	svc, e := service.New(repository.New(db), strategies, cfg, sources...)
 	if e != nil {
 		return e
 	}
