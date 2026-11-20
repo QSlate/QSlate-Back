@@ -1,58 +1,70 @@
 # QSlate-Back
-Backend de recherche quantitative QSlate. Le socle Go contient un gateway et
-les microservices Auth, Workspace, Widgets, Strategy et Marketplace. Le moteur de backtest existant est
-en Python/FastAPI ; l'orchestration isolée, TimescaleDB et le Builder sont les
-prochaines étapes décrites dans [l'analyse d'architecture](docs/architecture.md).
 
-## Socle microservices Go
+QSlate's quantitative research backend. The current stack includes a Go gateway,
+seven independent Go services (Auth, Workspace, Widgets, Strategy, Marketplace,
+Lab and Market Data), a Python syntax analyzer, a bounded dataset parser and the
+candle-by-candle simulator used by Lab. The original FastAPI prototype is available
+in Git history; the current stack uses the Go gateway.
+
+See the [architecture](docs/architecture.md) and
+[REST/stream conventions](docs/contracts.md) for implemented boundaries and
+remaining work.
+
+## Repository layout
 
 ```text
-gateway/                  routage configurable et vérification JWT
-services/auth/            comptes, sessions, OAuth2, emails et clés API
-services/workspace/       dashboards privés, grille et instances de widgets
-services/widgets/         catalogue, versions immuables et admission de preview
-services/strategy/        code Python, historique, restauration et diagnostics IDE
-services/marketplace/     catalogue communautaire, publications, installations et avis
-go.work                   workspace de développement, pas une dépendance de build
-templates/microservice/   service neutre, exécutable et générable
-cmd/                      initialisation locale et générateur
-*/Dockerfile              image construite depuis le seul dossier du composant
-docs/                     architecture, contrats OpenAPI et AsyncAPI
+gateway/                  explicit routing, JWT verification and CORS
+services/auth/            accounts, sessions, OAuth2, email and API keys
+services/workspace/       private dashboards, layouts and widget instances
+services/widgets/         catalogue, immutable versions and preview admission
+services/strategy/        Python drafts, history, restore and IDE diagnostics
+services/marketplace/     publications, pinned installations and reviews
+services/lab/             durable backtests, results and a separate Go worker
+services/market-data/     versioned imports, TimescaleDB, indexing worker and ticks
+simulator/                Python engine and the Lab stdin/NDJSON adapter
+templates/microservice/   neutral, runnable service template
+cmd/                      development initialization and service generation
+docs/                     architecture, OpenAPI and AsyncAPI contracts
+go.work                   optional development workspace, not a build dependency
 ```
 
-Comme dans AREA, chaque service et le gateway possèdent leur `go.mod`, `go.sum`,
-`Dockerfile`, `Makefile` et configuration. Leur petit socle `internal/platform`
-est une copie locale, pas une bibliothèque racine partagée. Aucun import Go entre
-services ni `replace` vers un dossier voisin : chaque dossier peut être copié,
-testé et construit sans le monorepo, avec `GOWORK=off`.
+Like AREA, each Go service and the gateway own their module, checksums, Dockerfile,
+Makefile, configuration and local `internal/platform` helpers. There are no Go
+imports between services or local module replacements. Each component builds
+outside the monorepo with `GOWORK=off`; the root module contains development tools
+and cross-service tests only.
 
-Le `go.work` facilite uniquement l'édition multi-module. Le module racine contient
-les outils et tests transverses. `make test` parcourt tous les modules : un simple
-`go test ./...` à la racine ne teste pas les modules enfants. Le Compose racine
-orchestre le développement ; chaque image n'embarque que son binaire et sa propre
-configuration. Les contrats documentaires restent regroupés dans `docs/`.
+Build independence does not remove functional dependencies: services validate
+sessions through Auth's API, Workspace resolves widget versions through Widgets,
+Strategy calls its syntax analyzer, and Lab resolves execution snapshots through
+Strategy and frozen datasets through Market Data. Services never share application
+tables or domain packages.
 
-Cette autonomie de construction ne supprime pas les dépendances fonctionnelles :
-Auth reste l'autorité des sessions, Workspace appelle Widgets par HTTP et Strategy
-appelle son analyseur. Aucune de ces relations ne partage de tables ni de code métier.
+## Start the development stack
 
-### Démarrer
-
-Go 1.26+, Docker Compose et Make :
+Requirements: Go 1.26 or newer, Docker Compose and Make.
 
 ```bash
 make up
 curl http://localhost:8080/readyz
 ```
 
-`make up` crée une fois `.env` (mots de passe PostgreSQL indépendants) et
-`.secrets/` (clés Ed25519), puis démarre les services. Les fichiers existants
-sont conservés ; `make init` ajoute les mots de passe Workspace/Widgets/Strategy manquants sans
-modifier les valeurs existantes. Le gateway est publié sur localhost:8080 et la
-boîte email de développement Mailpit sur localhost:8025 ; les services et leurs
-bases PostgreSQL n'ont pas de port
-hôte. Auth dispose d'une sortie réseau pour OAuth2/SMTP. Les credentials sont
-ignorés par Git/Docker.
+`make up` runs `make init`, creating ignored `.env` credentials and Ed25519
+keys under `.secrets/` once. Missing independent database passwords for Workspace,
+Widgets, Strategy, Marketplace, Lab and Market Data are appended without rotating existing
+values. The gateway binds to `127.0.0.1:8080`; the development Mailpit inbox binds
+to `127.0.0.1:8025`. Business services and PostgreSQL have no host ports.
+
+Auth has outbound connectivity for OAuth2/SMTP. Credentials are excluded from
+Git and Docker build contexts. Each database uses a private storage network;
+Auth alone receives the private signing key. Containers use non-root users,
+read-only application filesystems and dropped capabilities.
+
+Lab execution and widget preview are disabled by default. The default stack can
+serve their APIs, but it does not silently execute user code without the required
+isolation and data configuration.
+
+### Register, log in and refresh
 
 ```bash
 curl -c /tmp/qslate-cookies -X POST http://localhost:8080/qslate/v1/auth/register \
@@ -71,192 +83,184 @@ curl -b /tmp/qslate-cookies -c /tmp/qslate-cookies \
   -H 'Origin: http://localhost:3000'
 ```
 
-Les réponses login/register contiennent `user`, `access_token`,
-`token_type` et `expires_in` (900 secondes par défaut). Les mots de passe
-sont hachés avec bcrypt ; le hash n'est jamais sérialisé. Email et username
-sont normalisés en minuscules. Les JWT imposent signature Ed25519, expiration,
-issuer et audience. Le gateway et auth vérifient le Bearer ; auth vérifie aussi
-que la session n'est ni révoquée ni expirée. Le refresh token reste dans un
-cookie HttpOnly, est haché en base, tournant et lié à une session de 30 jours
-maximum par défaut. Un rejeu révoque la session. Le frontend doit sérialiser
-ses refresh et envoyer `credentials: include`.
-Les erreurs applicatives renvoient `{"error":{"code":"...","message":"..."}}`.
+Login/register return `user`, `access_token`, `token_type` and `expires_in`
+(900 seconds by default). Passwords use bcrypt; hashes are never serialized.
+Emails and usernames are normalized to lowercase. Access tokens enforce Ed25519
+signatures, issuer, audience and expiration. Private business operations also
+validate the live Auth session and resource ownership.
 
-Les migrations SQL sont embarquées dans chaque service et appliquées au démarrage sous
-verrou transactionnel : une migration déjà appliquée ne doit pas être modifiée.
-Ajouter un nouveau fichier numéroté pour faire évoluer une base existante.
+Refresh tokens are opaque, hashed in Auth's database, rotated and stored in an
+HttpOnly cookie. Default absolute session lifetime is 30 days. Replay revokes the
+session; the frontend must serialize refresh requests and use
+`credentials: include`. Application errors use
+`{"error":{"code":"...","message":"..."}}`.
 
-Les 14 opérations de la section Auth du PDF sont implémentées : compte,
-login/logout/refresh, récupération de mot de passe, vérification d'email,
-profil, préférences et gestion des clés API Runner. Trois routes ajoutent
-OAuth2 configurable (fournisseurs, authorize, callback). Les emails sont mis
-en file chiffrée transactionnelle puis envoyés par SMTP.
-Les 11 opérations de la section 3 sont également implémentées : dashboards,
-duplication, sauvegarde de grille avec révision, instances de widgets et reset
-de layout configurable. Workspace vérifie la session active auprès d'Auth sur
-chaque requête et applique la propriété des ressources dans sa propre base.
+### Implemented endpoints
 
-La section 4 expose les listes de widgets installés/personnalisés, le CRUD
-versionné et l'admission de prévisualisation. Workspace vérifie les références
-de widget/version par l'API privée du catalogue. La prévisualisation est désactivée
-par défaut (503) : un contrôleur sandbox externe gVisor reste à fournir ; aucun
-code utilisateur n'est exécuté dans l'API, ni présenté comme exécuté par les tests.
-Voir [Widgets](services/widgets/README.md) pour le contrat et les limites.
+The gateway publishes 74 of the 98 REST operations in the canonical contract,
+plus the authenticated backtest and market-tick WebSockets.
 
-La section 5 ajoute neuf opérations Strategy : CRUD privé, import `.py`, historique,
-restauration et diagnostics Python pour Monaco. Les sauvegardes/restaurations
-exigent la version courante (`base_version_id`, sinon 409). Les révisions sont
-immuables ; le lint compile le texte sans l'exécuter dans un analyseur Python
-3.13 séparé, limité en ressources et sans secrets ni accès DB. Ce n'est pas une
-autorisation de sécurité ou un moteur de backtest. Voir [Strategy](services/strategy/README.md).
+| PDF section | Service | Implemented operations |
+| --- | --- | --- |
+| 2 | [Auth](services/auth/README.md) | 14 account/session/profile/API-key operations and 3 additional OAuth2 routes |
+| 3 | [Workspace](services/workspace/README.md) | 11 dashboard, layout and widget-instance operations |
+| 4 | [Widgets](services/widgets/README.md) | 7 catalogue/version/preview-admission operations |
+| 5 | [Strategy](services/strategy/README.md) | 9 draft, import, history, restore and syntax-diagnostic operations |
+| 6 | [Lab](services/lab/README.md) | 11 backtest/result/comparison/optimization operations and one WebSocket |
+| 7 | [Marketplace](services/marketplace/README.md) | 11 discovery, publication, installation and review operations |
+| 8 | [Market Data](services/market-data/README.md) | 8 catalogue, OHLCV, import, mapping, validation and deletion operations, plus tick subscriptions |
 
-La section 7 ajoute les 11 opérations [Marketplace](services/marketplace/README.md) :
-recherche publique, sélection configurée/populaire, catégories, publications de
-versions détenues, installations épinglées et avis. Les sources restent privées
-jusqu'à l'installation ; Widgets et Strategy lisent les droits par HTTP, sans
-partage de tables. Les stratégies installées sont en lecture seule. La section 6
-reste différée dans l'attente des précisions de l'équipe : aucun endpoint backtest
-supplémentaire n'est publié. Le gateway expose maintenant 55 opérations sur 98.
+Widget preview dispatches to an external sandbox controller, which is not bundled
+or validated here. Strategy's separate Python 3.13 analyzer compiles submitted
+text without executing it; a successful syntax check is not permission to run it.
 
-Voir [le contrat Auth](docs/auth.openapi.yaml), [le contrat REST complet](docs/qslate.openapi.json)
-et [le service Workspace](services/workspace/README.md), ainsi que
-[les conventions et contrats proposés](docs/contracts.md). Les autres domaines
-et les deux flux [WebSocket](docs/streams.asyncapi.json) sont **planifiés**, pas
-implémentés. Le frontend et le backtest Python ne sont pas encore intégrés.
-MFA, liaison explicite de comptes et validation des clés côté Runner restent à faire.
+Lab connects the Python simulator imported from branch #18 through a separate Go
+worker and durable PostgreSQL queue. Strategy versions, dataset bytes and effective
+parameters are frozen before enqueueing. Execution requires a configured
+`runsc` daemon, simulator image, ready worker and a ready owned dataset version
+from Market Data. Standalone Lab can use an operator-managed CSV catalogue when
+no Market Data origin is configured. See
+[Lab setup and limitations](services/lab/README.md#configure-and-start).
 
-### Configurer OAuth2 sans modifier le code
+Market Data stores uploaded CSV/Parquet bytes and immutable normalized versions
+in its own database. Its worker validates mappings and indexes OHLCV points into
+TimescaleDB. Live ticks and provider history require a configured trusted feed
+adapter; the default stack does not fabricate market prices. See the
+[Market Data guide](services/market-data/README.md) for import and feed setup.
 
-Éditer [providers.json](services/auth/config/providers.json) : URLs, scopes,
-mapping des claims, callback et noms des variables contenant les identifiants.
-Copier `.env.oauth.example` vers `.env.oauth` et renseigner les secrets, puis
-activer le fournisseur et redémarrer Auth (`docker compose up -d --force-recreate auth`).
-Le fichier est monté en lecture seule dans Compose ; hors Docker, utiliser
-`OAUTH_PROVIDERS_FILE`. Aucun fournisseur n'est activé par défaut.
+Other contract domains remain planned. Frontend
+integration, MFA, explicit account linking and Runner API-key admission are not
+implemented. Proposed paths/payloads reconstructed from the PDF are identified
+in the contracts rather than presented as verbatim PDF requirements.
 
-Le flux Authorization Code + PKCE S256 utilise un état à usage unique, puis
-une identité vérifiée via userinfo. Aucun token n'est exposé dans l'URL de
-redirection ; le frontend appelle refresh après le callback. Une adresse email
-identique n'entraîne jamais de fusion automatique de comptes. Les fournisseurs
-nécessitant un protocole différent devront disposer d'un adaptateur dédié.
+### Configure OAuth2 without changing code
 
-### Développer et créer un service
+Edit [providers.json](services/auth/config/providers.json): provider URLs, scopes,
+claim mapping, callback and names of credential environment variables. Copy
+`.env.oauth.example` to ignored `.env.oauth`, supply secrets, enable the provider
+and restart Auth:
 
 ```bash
-make test                       # tests avec race detector
-make vet
-make build                      # binaires dans le bin/ de chaque composant
-make test-standalone            # builds isolés hors du dépôt, sans go.work
-python3 -B -m unittest discover -s services/strategy/analyzer -p 'test_*.py'
-API_BASE_URL=http://localhost:8080 MAILPIT_URL=http://localhost:8025 make test-e2e
-make new-service NAME=market-data
-make -C services/market-data test build
-make logs
-make down                       # arrêt, données PostgreSQL conservées
+docker compose up -d --force-recreate auth
 ```
 
-Suivre [le template](templates/microservice/README.md) pour ajouter un domaine,
-ses cas d'utilisation, ses adaptateurs, son contrat et ses routes publiques.
-Les handlers n'accèdent pas directement au SQL ; les services ne partagent
-ni repositories ni entités métier.
+Compose mounts the settings read-only; outside Docker, use
+`OAUTH_PROVIDERS_FILE`. Providers are disabled by default. Authorization Code +
+PKCE S256 uses single-use state and an authenticated userinfo response. Tokens
+never appear in redirect URLs; the frontend calls refresh after the callback.
+Matching email addresses never trigger automatic account linking. Providers with
+a different identity protocol require an explicit adapter.
 
-Exemple depuis le seul dossier d'un service :
+## Development and verification
+
+Run root targets from the repository root:
+
+```bash
+make test                       # race-enabled tests across all Go modules and analyzer tests
+make vet
+make build                      # binaries in each component's bin/ directory
+make test-standalone             # independent module builds outside the repository
+make simulator-test             # fixed, synthetic Python engine fixtures in Docker
+make test-engine                # real Go-to-Python transport with trusted fixtures
+make market-parser-test         # real CSV/Parquet parser fixtures in a test image
+API_BASE_URL=http://localhost:8080 MAILPIT_URL=http://localhost:8025 make test-e2e
+make new-service NAME=example-domain
+make -C services/market-data test build
+make logs
+make down                       # stop the stack, retaining PostgreSQL volumes
+```
+
+A root `go test ./...` alone does not include child modules. The root Makefile
+iterates over them explicitly. `simulator-test` and `test-engine` are opt-in Docker
+checks using only repository-owned fixtures; they do not validate a production
+runsc deployment.
+
+`make test` invokes `python3` for the syntax analyzer fixtures. Use Python 3.13
+to match the analyzer's shipped container image and resource limits.
+
+Follow the [template guide](templates/microservice/README.md) when adding a domain,
+use cases, adapters, contracts and public routes. Handlers do not query SQL
+directly; services never share repositories or domain entities.
+
+From an individual component directory:
 
 ```bash
 cd services/strategy
-make test build                 # GOWORK=off et dépendances propres au service
-make docker-build               # contexte Docker limité à ce dossier
+make test build                 # GOWORK=off and service-owned dependencies
+make docker-build               # Docker context limited to this directory
 ```
 
-Les helpers techniques copiés restent sous la responsabilité du service. Une
-correction de sécurité doit être reportée explicitement dans les copies concernées
-et validée par les tests de chaque module ; modifier le template ne met pas à jour
-silencieusement les services existants.
+Security fixes to copied helpers must be propagated and tested explicitly in each
+affected module. Updating the template does not silently update existing services.
 
-Tests PostgreSQL, sur une base de développement accessible :
+PostgreSQL integration tests require an accessible development database:
 
 ```bash
 TEST_DATABASE_URL='postgres://user:password@localhost:5432/database?sslmode=disable' make test-integration
 ```
 
-Chaque test crée et supprime uniquement son schéma `auth_test_*`, `workspace_test_*`
-ou `widgets_test_*`, `strategy_test_*`. La CI fournit
-sa propre base. Pour lancer les binaires hors Docker, injecter `DATABASE_URL`
-propre à chaque service, `AUTH_SERVICE_URL=http://127.0.0.1:8081` pour Workspace et
-le gateway, `WORKSPACE_SERVICE_URL=http://127.0.0.1:8082` pour le gateway et
-`WIDGETS_SERVICE_URL=http://127.0.0.1:8083` pour Workspace/gateway et
-`STRATEGY_SERVICE_URL=http://127.0.0.1:8084` pour le gateway. Strategy vérifie aussi
-Auth et utilise `STRATEGY_ANALYZER_URL` pour le lint ; `.env`
-n'est pas chargé automatiquement par les binaires Go. Exécuter `make run` depuis
-le dossier du service, avec les variables exportées et les chemins des clés injectés.
-Les fichiers de configuration par défaut sont relatifs à ce dossier, pas à la racine.
+Tests create/drop only their own `auth_test_*`, `workspace_test_*`,
+`widgets_test_*`, `strategy_test_*`, `marketplace_test_*`, `lab_test_*` or `market_data_test_*` schemas.
+Never point them at a production database. SQL migrations are embedded and applied
+at startup under a transaction lock, with checksum verification. Add numbered
+migrations instead of editing applied files.
 
-### Configuration
+Market Data repository tests can also exercise the actual parser and Timescale
+hypertable: set `TEST_PARSER_URL` to a private test parser and
+`TEST_TIMESCALE=true` with a Timescale-enabled test database. The standalone parser
+test image requires no host test-folder mounts.
 
-| Variable | Composant | Défaut / contrainte |
+For local Go processes, export each component's `.env.example` settings and
+provide its own reachable database and key paths. Go does not load dotenv files
+automatically. Run `make run` from that component's directory; default configuration
+paths are relative to it. HTTP dependencies remain explicit, not shared Go code.
+
+### Configuration reference
+
+| Variable | Component | Default / requirement |
 | --- | --- | --- |
-| `MARKETPLACE_CONFIG_FILE` | Marketplace | `config/marketplace.json` ; catégories, sélection et limites en fichier |
-| `MARKETPLACE_SERVICE_URL` | Gateway ; optionnel pour Widgets/Strategy | Origine HTTP(S) ; `http://localhost:8086` hors Docker |
-| `MARKETPLACE_DATABASE_PASSWORD` | Compose | Secret indépendant ajouté par `make init` sans rotation des autres |
-| `HTTP_ADDR` | Gateway / auth / workspace / widgets / strategy | `:8080` / `:8081` / `:8082` / `:8083` / `:8084` hors Docker |
-| `AUTH_SERVICE_URL` | Gateway, Workspace, Widgets et Strategy | Obligatoire pour les routes et la validation des sessions |
-| `STRATEGY_SERVICE_URL` | Gateway | Obligatoire pour les neuf routes Strategy |
-| `STRATEGY_CONFIG_FILE` | Strategy | `config/strategy.json` depuis le service ; `/app/strategy.json` dans l'image |
-| `STRATEGY_ANALYZER_URL` | Strategy | Origine de l'analyseur ; HTTP explicitement autorisé pour le réseau interne local |
-| `WIDGETS_SERVICE_URL` | Gateway / Workspace | Obligatoire pour le catalogue |
-| `WIDGETS_CONFIG_FILE` | Widgets | `config/catalogue.json` depuis le service ; `/app/catalogue.json` dans l'image |
-| `WORKSPACE_SERVICE_URL` | Gateway | Obligatoire pour la configuration livrée |
-| `WORKSPACE_LAYOUT_FILE` | Workspace | `config/layout.json` depuis le service ; `/app/layout.json` dans l'image |
-| `ROUTES_FILE` | Gateway | `config/routes.json` depuis le gateway |
-| `ALLOWED_ORIGINS` | Gateway / auth | `http://localhost:3000`, liste séparée par virgules |
-| `DATABASE_URL` | Auth / Workspace / Widgets / Strategy | Une base propre à chaque service ; paramètres TLS adaptés à l'environnement |
-| `JWT_PRIVATE_KEY_FILE` | Auth uniquement | `.secrets/auth-private.pem` |
-| `JWT_PUBLIC_KEY_FILE` | Gateway / Workspace / Widgets / Strategy | `.secrets/auth-public.pem` |
-| `JWT_ISSUER` / `JWT_AUDIENCE` | Tous | `qslate-auth` / `qslate-api` |
-| `ACCESS_TOKEN_TTL` | Auth | `15m`, entre `1m` et `1h` |
-| `REFRESH_TOKEN_TTL` | Auth | `720h`, supérieur à l'access token, maximum `2160h` |
-| `COOKIE_SECURE` | Auth | `true` ; `false` uniquement pour HTTP local dans Compose |
-| `OAUTH_PROVIDERS_FILE` | Auth | `config/providers.json` depuis Auth ; `/app/providers.json` dans l'image |
-| `PUBLIC_APP_URL` | Auth | `http://localhost:3000`, base des liens email et callback frontend |
-| `SMTP_ADDR` / `SMTP_FROM` | Auth | `localhost:1025` / `noreply@qslate.local` ; Mailpit dans Compose |
-| `SMTP_TLS_MODE` | Auth | `starttls` ; `tls` ou `plain` (Mailpit local) |
-| `SMTP_USERNAME` / `SMTP_PASSWORD` | Auth | Optionnels ensemble, TLS obligatoire si renseignés |
-| `BCRYPT_COST` | Auth | `12`, entre `10` et `14` |
+| `HTTP_ADDR` | Go HTTP components | Gateway 8080, Auth 8081, Workspace 8082, Widgets 8083, Strategy 8084, Marketplace 8086, Lab 8087, Market Data 8088 outside Docker; 8080 in Compose |
+| `AUTH_SERVICE_URL` | Gateway and business services | Required for routing or live-session validation |
+| `WORKSPACE_SERVICE_URL` | Gateway | Required by the shipped route file |
+| `WIDGETS_SERVICE_URL` | Gateway, Workspace, Marketplace | Catalogue routing, version resolution or publication snapshots |
+| `STRATEGY_SERVICE_URL` | Gateway, Marketplace, Lab | Strategy routing, publication or execution snapshots |
+| `MARKETPLACE_SERVICE_URL` | Gateway; optional in Widgets/Strategy | HTTP(S) origin; localhost:8086 outside Docker |
+| `LAB_SERVICE_URL` | Gateway | HTTP(S) origin; localhost:8087 outside Docker |
+| `MARKET_DATA_SERVICE_URL` | Gateway, Lab | Market Data origin; localhost:8088 outside Docker; enables owner-authorized dataset snapshots in Lab |
+| `MARKET_DATA_CONFIG_FILE` | Market Data API/worker | `config/market-data.json`; limits, origins, Timescale requirement and trusted feed settings |
+| `MARKET_DATA_PARSER_URL` | Market Data API/worker | Private parser origin; localhost:8089 outside Docker |
+| `MARKET_DATA_FEED_URL` / `MARKET_DATA_FEED_TOKEN` | Market Data API | Optional trusted feed adapter; copy `.env.market-data.example` to ignored `.env.market-data` |
+| `MARKET_DATA_NETWORK_PREFIX` | Compose | First three IPv4 octets for five /28 networks; default `10.249.76`; choose a free prefix if needed |
+| `ROUTES_FILE` | Gateway | `config/routes.json` locally; `/app/routes.json` in the image |
+| `WORKSPACE_LAYOUT_FILE` | Workspace | `config/layout.json` locally; `/app/layout.json` in the image |
+| `WIDGETS_CONFIG_FILE` | Widgets | `config/catalogue.json` locally; `/app/catalogue.json` in the image |
+| `STRATEGY_CONFIG_FILE` | Strategy | `config/strategy.json` locally; `/app/strategy.json` in the image |
+| `STRATEGY_ANALYZER_URL` | Strategy | Analyzer origin; HTTP explicitly enabled only for the local private network |
+| `MARKETPLACE_CONFIG_FILE` | Marketplace | `config/marketplace.json` locally; `/app/marketplace.json` in the image |
+| `LAB_CONFIG_FILE` | Lab API/worker | `config/lab.json` locally; `/app/config/lab.json` in Compose |
+| `LAB_DOCKER_SOCKET` / `LAB_DOCKER_GID` | Opt-in Lab worker | Dedicated execution-daemon socket path and access group; never mounted into the API |
+| `*_DATABASE_PASSWORD` | Compose | Independent per-service credentials, added by `make init` without rotation |
+| `DATABASE_URL` | Each stateful service; Lab worker | Service-owned database; choose environment-appropriate TLS settings |
+| `JWT_PRIVATE_KEY_FILE` | Auth only | `.secrets/auth-private.pem`; inject the actual runtime path |
+| `JWT_PUBLIC_KEY_FILE` | Gateway and business APIs | `.secrets/auth-public.pem`; inject the matching public-key path |
+| `JWT_ISSUER` / `JWT_AUDIENCE` | JWT issuers/verifiers | `qslate-auth` / `qslate-api` |
+| `ACCESS_TOKEN_TTL` | Auth | `15m`, between `1m` and `1h` |
+| `REFRESH_TOKEN_TTL` | Auth | `720h`, longer than the access token, at most `2160h` |
+| `COOKIE_SECURE` | Auth | `true`; disabled only for local HTTP in Compose |
+| `ALLOWED_ORIGINS` | Gateway/Auth | Comma-separated list; default `http://localhost:3000`; Lab origins are in its JSON config |
+| `OAUTH_PROVIDERS_FILE` | Auth | `config/providers.json` locally; `/app/providers.json` in the image |
+| `PUBLIC_APP_URL` | Auth | `http://localhost:3000`; fixed base for email links and frontend callback |
+| `SMTP_ADDR` / `SMTP_FROM` | Auth | `localhost:1025` / `noreply@qslate.local`; Mailpit in Compose |
+| `SMTP_TLS_MODE` | Auth | `starttls`; alternatives `tls` or local-only `plain` |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | Auth | Optional together; require TLS when supplied |
+| `BCRYPT_COST` | Auth | `12`, between `10` and `14` |
 
-Les clés de développement sont montées avec l'UID/GID local généré dans `.env`.
-En déploiement, injecter les fichiers de clés avec les permissions de
-l'utilisateur du conteneur et gérer leur cycle de vie via le secret manager.
+Development key mounts use the UID/GID generated in `.env`. Deployments must inject
+keys with permissions for the container user and manage their lifecycle through
+a secret manager.
 
-## Python Backtesting Engine & Job Runner
+## Historical prototype
 
-The Python simulation engine is completely modularized in [`simulator/`](simulator/) and designed as an **ephemeral job runner** for cloud microservices (Docker, Kubernetes Jobs, AWS ECS, Google Cloud Run).
-
-See the comprehensive [Simulator Documentation](simulator/README.md) for full architecture, API guide, and configuration contracts.
-
-### Quick Start
-
-```bash
-# Activate virtual environment
-source .venv/bin/activate
-
-# 1. Run quick local test suite with default example strategy
-python simulator/tests/run_test.py
-
-# 2. Run with your own .py strategy file
-python simulator/tests/run_test.py --strategy path/to/my_strategy.py --ticker AAPL --capital 15000
-
-# 3. Run as an ephemeral containerized job with JSON configuration
-python -m simulator.job.cli --config simulator/examples/config_local.json --output-dir ./results
-
-# 4. Run automated test suite
-python -m unittest discover simulator/tests
-```
-
-### Architecture Highlights
-
-- **Candle-by-Candle Engine**: High-fidelity simulation with commission rates, slippage in basis points, and automatic Stop Loss, Take Profit, and bar timeouts.
-- **Modern Strategy API**: Object-oriented `Strategy` class with `on_init`, `on_bar`, `on_stop`, and `custom_metrics` lifecycle methods.
-- **Marketplace Extensions**: Pluggable indicators and post-processing analytics loaded dynamically from independent modules.
-- **Real-Time Telemetry**: In-strategy streaming via `ctx.record(...)` generating time-series for frontend chart overlays.
-- **Standardized Artifacts**: Produces `summary.json`, `trades.json`, `equity_curve.json`, `telemetry.json`, and `logs.txt`.
-
+The removed root FastAPI/runner files can be inspected in Git history. They are
+not part of the current stack. Use the [Lab guide](services/lab/README.md) and
+[simulator guide](simulator/README.md) for supported backtesting commands.
