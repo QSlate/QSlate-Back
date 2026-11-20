@@ -5,6 +5,7 @@ use (
 	./gateway
 	./services/auth
 	./services/lab
+	./services/market-data
 	./services/marketplace
 	./services/strategy
 	./services/widgets

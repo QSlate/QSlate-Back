@@ -14,7 +14,7 @@ down:
 	docker compose down
 
 logs:
-	docker compose logs -f gateway auth workspace widgets strategy strategy-analyzer marketplace lab
+	docker compose logs -f gateway auth workspace widgets strategy strategy-analyzer marketplace lab market-data market-data-worker market-data-parser
 
 test:
 	@set -e; for qslate_module in $(MODULES); do \
@@ -59,3 +59,7 @@ simulator-test: simulator-build
 
 test-engine: simulator-build
 	cd services/lab && SIMULATOR_TEST_IMAGE=$(SIMULATOR_IMAGE) GOWORK=off go test -race -tags engine -count=1 ./internal/execution
+
+.PHONY: market-parser-test
+market-parser-test:
+	docker build --target test -t qslate-market-parser-tests:local ./services/market-data/parser
