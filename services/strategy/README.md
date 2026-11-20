@@ -45,9 +45,10 @@ ID descending (default 100, maximum 1000). History returns full private snapshot
 ordered by monotonic revision descending, with an exclusive decimal revision
 cursor (default 10, maximum 20), bounding response size even for large source.
 DELETE archives the strategy: detail, history and mutation routes return 404,
-but snapshots are retained for future run pinning. This is not a GDPR erasure API.
-There is no run/export snapshot API yet; add a narrowly scoped owner contract when
-those consumers are implemented, not cross-service SQL.
+but immutable snapshots are retained. This is not a GDPR erasure API. Lab freezes
+an authorized snapshot before enqueueing; new owned execution snapshots require
+a non-archived strategy. Existing frozen Lab inputs do not depend on later draft
+edits or archival. Export-specific contracts remain future work.
 
 All nine operations verify the Ed25519 JWT and live Auth session. Owners come
 only from verified identity, never JSON or identity headers. Inaccessible and
@@ -95,7 +96,8 @@ E2E tests call the real Python container rather than an HTTP mock.
 This is a **syntax/scope checker**, not Ruff/Pylint style analysis, type checking,
 an undefined-name checker or an execution security policy. A program containing
 dangerous imports may be syntactically valid. Section 10 AST allowlisting and
-gVisor execution isolation remain separate work; never use `valid:true` as
+Lab's separately configured gVisor execution boundary are outside this syntax
+checker; never use `valid:true` as
 permission to run strategy source. HTTP deployment here is local/internal;
 production workload authentication/mTLS and distributed admission quotas remain
 deployment concerns. No user execution sandbox is claimed by this slice.
@@ -151,9 +153,13 @@ creating a new private strategy, or uninstall through Marketplace. The one-entry
 installed history describes the installed snapshot, not the author's private
 revision history. Unpublication does not remove existing installations.
 
-Only POST `/catalogue/snapshot` can provide an exact owned source version to
+Private POST `/catalogue/snapshot` provides an exact owned source version to
 Marketplace; it checks JWT, active session, owner and non-archived strategy.
-This internal route is absent from the gateway. No shared Go module or SQL.
+Private POST `/catalogue/execution-snapshot` serves Lab. It requires an explicit
+version and supports owned strategies or currently active, version-pinned
+Marketplace strategy installations. Historical retained installation grants
+alone cannot authorize a new execution. Both return source/configuration over
+authenticated HTTP and are absent from the gateway. No shared Go module or SQL.
 The optional installation dependency is not a readiness check, preventing a
 startup cycle and keeping standalone drafts usable when it is not configured.
 

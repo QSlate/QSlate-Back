@@ -8,7 +8,9 @@ another service. There is no application database or private signing key here.
 `ROUTES_FILE` defaults to `config/routes.json` from this folder and `/app/routes.json`
 in the image. Each method/path is explicitly mapped to an environment-configured
 upstream; unknown/unimplemented endpoints are not forwarded. The shipped file
-publishes 44 operations across Auth/OAuth, Workspace, Widgets and Strategy.
+publishes 74 REST operations across Auth/OAuth, Workspace, Widgets, Strategy,
+Marketplace, Lab and Market Data, plus the backtest and market-tick WebSockets.
+Other planned endpoints are not forwarded.
 
 For local execution export `.env.example` with the public key path and reachable
 upstream API origins, then `make run` (default 8080). Go does not load `.env` itself.
@@ -16,8 +18,15 @@ Root `make up` orchestrates the development services and injects their origins.
 HTTP upstream dependencies do not prevent independent compilation or deployment
 with a different route file. Readiness checks the configured upstreams.
 
-The gateway verifies private-route JWT signatures/issuer/audience/expiry and
+The gateway verifies private REST-route JWT signatures/issuer/audience/expiry and
 strips client identity/forwarded headers. Services still validate live sessions
 and resource ownership themselves. CORS and sensitive-Auth rate limits remain
 enforced; per-instance in-memory limits are not distributed production quotas.
 Do not publish internal catalogue/analysis APIs through route configuration.
+
+Both WebSocket routes authenticate in their first frame within five seconds.
+Their services validate the JWT, live session and resource or symbol access
+before sending data, then revalidate during the stream. Tokens in query strings
+are rejected. Lab supports persisted event replay; Market Data ticks do not.
+The gateway transparently proxies upgrades; HTTP CORS preflights allow
+`Idempotency-Key` for Lab submissions and dataset validation.

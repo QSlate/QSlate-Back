@@ -2,7 +2,8 @@
 
 Issue [#71](https://github.com/QSlate/QSlate-Back/issues/71). This independent Go
 module owns its database, migrations, configuration, HTTP adapters and image.
-Section 6 remains deferred; publication/install never runs submitted code.
+Publication/install never runs submitted code. Section 6 is implemented by the
+separate Lab service and worker, not by Marketplace.
 
 ## Public API
 
@@ -58,6 +59,11 @@ Uninstall hides the active installation and prevents new placements. Retained
 per-user/version grants allow already pinned dashboard instances to keep working,
 including after upgrade/unpublication. Historical grants are not public and are
 never accepted for another account. This retention is not a GDPR erasure API.
+
+For a new Lab run, Strategy's private execution-snapshot API resolves the user's
+active installed version through Marketplace. Historical grants alone do not
+authorize execution. Lab freezes the authorized source at admission, so later
+installation changes do not rewrite already queued inputs.
 
 ## Discovery, reviews and limits
 
