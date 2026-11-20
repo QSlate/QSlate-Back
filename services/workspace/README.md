@@ -79,7 +79,7 @@ dashboards: explicit layout save/reset validates against the new settings.
 
 Workspace has its own database, credentials, volume and private storage network.
 Only the gateway exposes its routes. Workspace can reach Auth's API, not Auth's
-database, and receives no signing key or OAuth secrets. Readiness checks both
+database, and receives no signing key or OAuth secrets. Readiness checks
 PostgreSQL, Auth and Widgets; liveness checks the process. HTTP bodies are limited to 16 KiB,
 request contexts to 10 seconds, Auth calls to 2 seconds. Internal service identity
 (mTLS/workload identities) is a production hardening step; private networks alone
@@ -107,4 +107,5 @@ or local module replacements are needed. Make targets enforce `GOWORK=off`.
 Tracked by [issue #65](https://github.com/QSlate/QSlate-Back/issues/65), branch
 `65-implement-workspace-service-and-dashboard-layout-endpoints`, based on the
 Auth/Gateway foundation in [PR #64](https://github.com/QSlate/QSlate-Back/pull/64).
-Rebase onto main once that foundation is merged, before preparing a Workspace PR.
+These references describe the original implementation lineage, not an instruction
+to rebase or rewrite the current branch.

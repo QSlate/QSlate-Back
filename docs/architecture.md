@@ -1,238 +1,248 @@
-# Analyse et architecture QSlate
+# QSlate architecture and implementation status
 
-## Besoin et état réel du projet
+## Product needs and original assessment
 
-QSlate (nom QuantForge dans certains documents) propose un laboratoire de
-recherche quantitative accessible à deux profils : le trader qui veut valider
-une idée sans programmer et l'analyste qui veut écrire ses stratégies,
-indicateurs et métriques. Le parcours cible est : idée → stratégie versionnée →
-backtest sur un dataset identifié → rapport comparable → éventuellement
-exécution paper/live. Le dashboard doit conserver les layouts et projets de
-chaque utilisateur. Les stratégies constituent des données privées.
+QSlate (called QuantForge in some original documents) is a quantitative research
+lab for traders who want to validate ideas without coding and analysts who write
+strategies, indicators and metrics. The intended workflow is: idea → versioned
+strategy → backtest against an identified dataset → comparable report →
+eventually paper/live execution. Dashboards must retain each user's layouts and
+projects; strategy source is private unless deliberately shared.
 
-Sources locales consultées : `CLIENT NEEDS & FUNCTIONAL SCOPE.pdf`,
-`Diagram.pdf`, `CONTEXT, AUDIT & COMPLIANCE.pdf` du projet EIP et le frontend
-Next.js, dans `/home/alexis/Tek 4/Qslate_archi/G-EIP-600-PAR-6-1-eip-15-main`.
-La référence AREA est `/home/alexis/Tek 4/Qslate_archi/AREA/Backend`.
+The initial assessment used the EIP project's `CLIENT NEEDS & FUNCTIONAL SCOPE.pdf`,
+`Diagram.pdf`, `CONTEXT, AUDIT & COMPLIANCE.pdf` and Next.js frontend in
+`G-EIP-600-PAR-6-1-eip-15-main`. AREA's `Backend` directory was the architectural
+reference. These are historical assessment sources, not runtime dependencies.
 
-L'état observé de ce dépôt avant cette tranche :
+Before the Go foundation, this repository had:
 
-| Composant | Implémentation existante | Écart avec la cible documentaire |
+| Component | Original implementation | Gap from the target |
 | --- | --- | --- |
-| API | `main.py`, FastAPI ; assets, OHLCV, options, téléchargement et backtest | Pas de gateway Go ni d'identité utilisateur |
-| Calcul | `runner_service.py` appelle `job_runner.py` | Le code Python fourni est exécuté par `exec` dans le processus du runner ; aucune isolation par job dans ces fichiers |
-| Marché | CSV locaux, pandas et yfinance | TimescaleDB et stockage objet sont une cible, pas une implémentation ici |
-| Résultats | Rapport/trades renvoyés après une requête synchrone jusqu'à 600 s | Pas de catalogue de runs, statut persistant, queue ou propriétaire |
-| Frontend | Next.js, script editor et dashboard modulaire | Layouts en localStorage ; liens login/register sans parcours de connexion implémenté |
-| Builder et live | Décrits dans les documents | Absents du backend consulté |
+| API | Root `main.py`, FastAPI assets/OHLCV/options/download/backtest routes | No Go gateway or user identity |
+| Calculation | `runner_service.py` calling `job_runner.py` | User Python executed with `exec` in the runner process; no per-job sandbox |
+| Market data | Local CSV, pandas and yfinance | TimescaleDB and object storage were targets, not implementations |
+| Results | Synchronous report/trades response, up to 600 seconds | No durable run catalogue, owner or queue |
+| Original frontend | Next.js editor/modular dashboard; localStorage layouts | Login/register integration and server-side layout persistence still needed |
+| Builder/live | Described in product documents | Not implemented in the inspected backend |
 
-La séparation API/runner existe déjà, mais ne constitue pas une sandbox.
-Un validateur AST apporte un filtre préalable ; il ne remplace pas une
-isolation système, des quotas et une politique réseau.
+The legacy root Python files were removed and remain available in Git history.
+The current Python engine lives under `simulator/`. Separating
+an HTTP API from a Python runner is not itself a sandbox; syntax/AST checks do not
+replace system isolation, resource limits or network policy.
 
-## Ce que l'on reprend d'AREA
+## What QSlate takes from AREA
 
-AREA est une plateforme d'automatisation, structurée autour d'un gateway et
-de services Auth, Area, Service catalog, Webhook, Polling, Cron et Mail. Les
-responsabilités métier de QSlate sont différentes : on reprend son organisation
-technique, pas son découpage fonctionnel.
+AREA is an automation platform with a gateway and Auth, Area, Service catalogue,
+Webhook, Polling, Cron and Mail services. QSlate reuses its technical organization,
+not its business-domain split.
 
-Son gateway charge `services-config/**/service.config.json`, route vers des
-services Go, applique l'authentification et les règles internes. Le template
-AREA contient un `app/cmd`, des couches `http`, `service`, `repository`,
-`domain`, une configuration, PostgreSQL et Docker/OpenAPI. Chaque service
-possède ses données. Les interfaces de repository et les tests de service
-AREA sont déjà de bons points : la base n'est pas requise pour tous ses tests.
+The inspected AREA gateway loads `services-config/**/service.config.json` and
+routes to Go services with authentication/internal policies. Its template has an
+`app/cmd` entry point, HTTP/service/repository/domain layers, configuration,
+PostgreSQL, Docker and OpenAPI. Services own their data, and repository interfaces
+allow use-case tests without a real database.
 
-Points précis améliorés dans cette tranche :
-
-| Référence AREA consultée | Choix QSlate et raison |
+| Observed AREA pattern | QSlate decision |
 | --- | --- |
-| Routes directes et routes préfixées en parallèle | Un chemin public canonique par méthode, liste explicite ; éviter ambiguïtés et collisions |
-| JWT HS256 avec secret de développement par défaut dans Auth | Ed25519 : auth signe avec la clé privée, gateway vérifie uniquement avec la clé publique ; clés générées, aucun secret de signature par défaut |
-| `isValidUsername` retourne toujours `true` dans le service Auth observé | Validation effective, normalisation email/username et contraintes SQL |
-| Couche DB appelle `log.Fatal`, DSN par champs avec SSL désactivé | Erreurs remontées au point d'entrée ; `DATABASE_URL`, pool limité, timeouts et contextes |
-| SQL dans `db/init`, exécuté seulement sur une base neuve | Migrations embarquées versionnées avec transaction, verrou concurrent et checksum |
-| Template lié à une fausse ressource users | Template neutre et générateur qui réécrit les imports, sans DB obligatoire |
-| Modules et construction propres à chaque service | Même autonomie conservée : `go.mod`, checksums, Dockerfile et helpers techniques locaux ; Compose racine pour orchestrer le développement |
-| Secret partagé pour certaines routes internes | Pas de route interne publiée dans cette tranche ; futures identités de service dédiées, pas de confiance dans `X-User-ID` fourni par le client |
+| Parallel direct and prefixed routes | One explicit canonical public method/path mapping |
+| Development HS256 signing secret in Auth | Generated Ed25519 keys; only Auth signs, consumers receive the public key |
+| Username validation returning `true` in the inspected Auth implementation | Real validation, normalization and database constraints |
+| Database helpers calling `log.Fatal`; field-built non-TLS DSNs | Errors returned to the entry point; explicit `DATABASE_URL`, bounded pools and timeouts |
+| Fresh-database SQL initialization only | Embedded immutable migrations with transactions, locks and checksums |
+| Template tied to a placeholder users resource | Neutral runnable template and a generator that rewrites imports; database optional |
+| Independent service modules/builds | Preserve that independence, including local technical helpers and component-only Docker contexts |
+| Shared secrets for some internal routes | No private catalogue/analysis route at the gateway; explicit verified-user delegation, with workload authentication still a deployment concern |
 
-Chaque service et le gateway sont désormais des modules Go indépendants, avec
-leur seul dossier comme contexte Docker. Le `go.work` racine facilite l'édition,
-mais les builds/tests imposent `GOWORK=off` et aucun `replace` local. Le socle
-technique est copié dans chaque `internal/platform`, comme les helpers locaux
-d'AREA ; aucune entité métier ni repository n'est partagé. Le template produit
-un nouveau module autonome, sans mettre à jour les services déjà créés.
+Each Go component owns `go.mod`, `go.sum`, Dockerfile, Makefile, configuration
+and local `internal/platform` helpers. There are no root/sibling runtime imports
+or local module replacements. `go.work` is an optional editing aid; builds/tests
+use `GOWORK=off`. Updating the template never silently updates an existing service.
 
-Les tests d'architecture compilent les composants après les avoir copiés dans
-des dossiers temporaires hors du dépôt, interdisent les imports racine/voisins
-et testent aussi un service généré. La CI et le Makefile parcourent explicitement
-les modules : `go test ./...` lancé à la racine ne couvre que les outils/tests
-transverses. Les mises à jour de sécurité des helpers doivent être reportées
-dans les copies concernées ; cette duplication contrôlée privilégie l'autonomie.
+Architecture tests copy components outside the repository and compile them in
+isolation, reject cross-service imports and verify generated services. The root
+Makefile and Go CI iterate over modules explicitly: root `go test ./...` does
+not cover child modules. Security fixes to copied helpers must be propagated
+and tested in every affected service.
 
-## Socle implémenté
+## Implemented stack
+
+The gateway publishes 74 REST operations: 17 Auth/OAuth2, 11 Workspace, 7 Widgets,
+9 Strategy, 11 Marketplace, 11 Lab and 8 Market Data. It also forwards backtest
+and market-tick WebSockets.
+The canonical contract still contains 98 REST operations and two stream channels;
+unimplemented operations remain explicitly planned.
 
 ```mermaid
 flowchart LR
-    Client[Client HTTP / futur frontend] --> Gateway[Gateway Go :8080]
-    Gateway -->|Routes déclarées et JWT vérifié| Auth[Auth Go]
-    Auth --> DB[(PostgreSQL auth)]
-    Gateway -->|11 routes privées| Workspace[Workspace Go]
-    Workspace --> WDB[(PostgreSQL Workspace)]
-    Workspace -->|Session active via API| Auth
-    Gateway -->|7 routes privées| Widgets[Widgets Go]
-    Widgets --> WidgetsDB[(PostgreSQL Widgets)]
-    Widgets -->|Session active via API| Auth
-    Workspace -->|Résolution des versions par API| Widgets
-    Widgets -.->|Optionnel, externe non livré| Sandbox[Contrôleur sandbox gVisor]
-    Gateway -->|9 routes privées| Strategy[Strategy Go]
-    Strategy --> StrategyDB[(PostgreSQL Strategy)]
-    Strategy -->|Session active via API| Auth
-    Strategy -->|Compilation sans exécution| Analyzer[Analyseur Python isolé]
-    Private[Clé privée Ed25519] --> Auth
-    Public[Clé publique Ed25519] --> Gateway
-    Public --> Workspace
-    Public --> Widgets
-    Public --> Strategy
+    Client[HTTP / WebSocket client] --> Gateway[Go gateway :8080]
+    Gateway --> Auth[Auth: 17 REST operations]
+    Gateway --> Workspace[Workspace: 11 REST operations]
+    Gateway --> Widgets[Widgets: 7 REST operations]
+    Gateway --> Strategy[Strategy: 9 REST operations]
+    Gateway --> Marketplace[Marketplace: 11 REST operations]
+    Gateway --> Lab[Lab: 11 REST operations + backtest WS]
+    Gateway --> Data[Market Data: 8 REST operations + ticks WS]
+    Data --> DDB[(Market Data TimescaleDB / versions / queue)]
+    Data --> Parser[Bounded CSV / Parquet parser]
+    Indexer[Go indexing worker] --> DDB
+    Indexer --> Parser
+    Data -.-> Feed[Configured trusted feed adapter]
+    Auth --> ADB[(Auth PostgreSQL)]
+    Workspace --> WDB[(Workspace PostgreSQL)]
+    Widgets --> CDB[(Widgets PostgreSQL)]
+    Strategy --> SDB[(Strategy PostgreSQL)]
+    Marketplace --> MDB[(Marketplace PostgreSQL)]
+    Lab --> LDB[(Lab PostgreSQL / queue / artifacts / events)]
+    Workspace -->|Resolve widget versions| Widgets
+    Strategy -->|Compile without execution| Analyzer[Separate Python syntax analyzer]
+    Marketplace -->|Owned publication snapshots| Widgets
+    Marketplace -->|Owned publication snapshots| Strategy
+    Widgets -->|Pinned installations| Marketplace
+    Strategy -->|Pinned installations| Marketplace
+    Lab -->|Authorized execution snapshot| Strategy
+    Lab -->|Owned immutable dataset snapshot| Data
+    Worker[Separate Go Lab worker: opt-in] -->|Claim and persist| LDB
+    Worker -.->|Requires provisioned runsc| Job[Ephemeral Python simulator job]
+    Widgets -.->|Disabled external preview admission| Preview[External sandbox controller]
 ```
 
-Le gateway publie les 14 opérations Auth sous `/qslate/v1/auth` et
-`/qslate/v1/users/me`, plus les 3 routes OAuth2. Les opérations sensibles
-(login/register, actions email, création de clé, authorize/callback) partagent
-10 appels par minute et IP pour une instance de gateway. Les routes privées
-exigent un JWT valide au gateway **et** au service, ainsi qu'une session active
-en base Auth. Workspace publie aussi les 11 opérations de la section 3,
-contrôle le propriétaire dans sa base et vérifie chaque session par l'API Auth.
-Aucune route des autres domaines n'est publiée implicitement.
-Les probes `/healthz` et `/readyz` ont des rôles distincts ; readiness du
-gateway vérifie les upstreams.
+Private REST operations verify JWT signatures, issuer, audience and expiration,
+then check live Auth sessions and resource ownership in the responsible service.
+The diagram omits repeated session-validation edges for readability. Auth's
+private key is mounted only into Auth; business APIs and the gateway receive only
+the public key. The Lab worker and user jobs receive no Auth keys.
 
-Compose publie le gateway sur `127.0.0.1:8080` et Mailpit, uniquement pour le
-développement, sur `127.0.0.1:8025`. PostgreSQL n'a aucun port hôte.
-Chaque base se trouve sur un réseau accessible uniquement à son service,
-pas au gateway ni à l'autre service. La clé privée
-n'est montée que dans auth. Les services Go tournent avec un utilisateur
-non privilégié, un filesystem en lecture seule et sans capacités Linux.
-Auth dispose d'une sortie réseau pour les fournisseurs OAuth2 et SMTP.
+Sensitive Auth operations share an in-memory gateway limit of 10 requests per
+minute per client IP. The gateway removes supplied identity/forwarding headers.
+Marketplace's five reads are public. Both browser-compatible WebSockets
+authenticate in their first frame, without a gateway Bearer-header requirement.
+An otherwise valid JWT alone never grants access to another user's resources.
 
-### Identité modulaire et OAuth2
+`/healthz` checks process liveness; `/readyz` checks the component's documented
+dependencies. Gateway readiness checks configured upstreams. Marketplace, Lab
+and Market Data readiness check their own database, avoiding readiness cycles and making existing
+read-side data available independently of admission dependencies.
 
-Le domaine et les cas d'utilisation ne connaissent aucun fournisseur. Les
-adaptateurs HTTP/OAuth2 aboutissent tous à la même émission de session :
+Compose exposes only the gateway on `127.0.0.1:8080` and development Mailpit on
+`127.0.0.1:8025`. Business databases have no host ports and use service-owned
+storage networks. The Lab API and worker share only Lab's own database. Go
+application containers are non-root, read-only and capability-free. Auth has
+outbound connectivity for OAuth2/SMTP. Private networks are not a replacement
+for production workload authentication.
+
+## Identity, sessions and configurable OAuth2
+
+Password and OAuth2 adapters use the same session-issuance use case:
 
 ```text
-Login/register mot de passe ─┐
-                            ├─ Auth.session → JWT + cookie refresh → PostgreSQL Auth
-OAuth2 : config → adaptateur ┘
+Password login/register ──┐
+                         ├─ Auth session → JWT + refresh cookie → Auth PostgreSQL
+Configured OAuth2 flow ───┘
 ```
 
-L'adaptateur charge `config/providers.json` depuis le dossier Auth (ou
-`OAUTH_PROVIDERS_FILE`) : endpoints, scopes, mapping de claims, callback,
-paramètres et références aux variables d'environnement des secrets. Il n'y
-a pas de sélection codée par nom de fournisseur. Les secrets Compose sont
-injectés via `.env.oauth`, jamais inclus dans le JSON ni l'image.
+`OAUTH_PROVIDERS_FILE` selects Auth's provider JSON. Provider URLs, scopes,
+claim mappings, callback URLs, parameters and credential environment-variable
+names are configuration, not provider-name branches in code. Compose supplies
+secrets through ignored `.env.oauth`; JSON and images contain no credentials.
 
-Authorization Code + PKCE S256, état lié au navigateur et au fournisseur,
-usage unique et expiration protègent le callback. Des URLs de callback
-distinctes sont imposées par fournisseur ; les requêtes token/userinfo
-n'acceptent aucune redirection HTTP. Le transport distant exige HTTPS.
-Ces choix s'appuient sur les [recommandations OAuth2 actuelles (RFC 9700)](https://www.rfc-editor.org/rfc/rfc9700.html).
-Cette intégration utilise userinfo, pas une validation complète d'ID tokens OIDC.
-L'association externe est `(provider, subject)` ; aucun compte n'est lié
-automatiquement à un autre sur la seule égalité d'email.
+Authorization Code + PKCE S256 uses expiring, single-use state bound to the
+browser and provider. Callbacks are distinct per provider. Token/userinfo HTTP
+redirects are rejected; remote provider endpoints require HTTPS. The security
+reference is [OAuth 2.0 Security BCP, RFC 9700](https://www.rfc-editor.org/rfc/rfc9700.html).
+This integration uses authenticated userinfo, not full OIDC ID-token validation.
 
-Les refresh tokens sont opaques, hachés en base et tournants ; un rejeu
-révoque la famille. Logout/reset invalident les sessions concernées. Les
-services futurs devront vérifier l'état de session pour offrir la même
-révocation immédiate ; la signature JWT seule ne suffit pas.
-Les liens email à usage unique sont mis en outbox transactionnelle chiffrée
-et envoyés par l'adaptateur SMTP ; aucun appel SMTP dans le handler métier.
-L'outbox reste dans Auth pour cette tranche : un service Notifications pourra
-la consommer plus tard via un contrat de transport explicite.
+External identities use `(provider, subject)`; matching emails never
+automatically link accounts. Opaque refresh tokens are hashed and rotated;
+replay revokes the session family. Logout/password reset revoke the affected
+sessions. All implemented private business services validate those sessions
+through Auth's API; a future service must preserve that rule.
 
-Les choix précis et limites se trouvent dans [contracts.md](contracts.md).
-Le contrat REST recense 95 opérations issues du PDF + 3 extensions OAuth2 ;
-44 opérations d'API sont implémentées : 17 Auth/OAuth2, 11 Workspace, 7 Widgets
-et 9 Strategy. Strategy possède sa base, des versions immuables, l'import `.py`,
-la restauration optimiste et les diagnostics via un analyseur Python 3.13 séparé.
-Cet analyseur ne reçoit ni JWT ni secrets ni accès DB ; il compile sans exécuter,
-avec des limites CPU/mémoire/PID/temps et un réseau interne unique.
-La route de preview est une admission configurable vers une infrastructure
-gVisor externe, désactivée par défaut ; le runtime n'est pas livré ni validé ici.
-Les autres domaines
-et les deux flux AsyncAPI restent planifiés ; les chemins tronqués du PDF
-et les payloads reconstruits sont identifiés comme propositions.
+Email links use a transactional encrypted outbox inside Auth and a separate
+SMTP adapter. Delivery is at least once. A future Notifications service would
+need an explicit transport contract rather than direct access to Auth's tables.
+See [contracts.md](contracts.md) for precise cookie, email and API-key behavior.
 
-Le frontend et l'API Python conservent leur configuration actuelle : cette
-tranche n'inclut pas encore leur intégration au gateway. Les conteneurs
-du moteur de backtest ne sont pas ajoutés au Compose ; seul l'analyseur statique
-Python de Strategy est désormais livré dans la pile de développement.
+## Strategy analysis and widget preview
 
-## Découpage cible, à implémenter progressivement
+Strategy owns immutable Python drafts, import/history, optimistic restore and
+syntax diagnostics. Its separate Python 3.13 analyzer receives only source and
+language, no JWT, credentials or database access. Each request compiles without
+executing code in a disposable interpreter with CPU/memory/PID/time bounds.
 
-```mermaid
-flowchart TB
-    Web[Dashboard Next.js] --> G[Gateway]
-    G --> A[Auth / identité]
-    G --> W[Workspace / layouts]
-    G --> S[Strategy / versions]
-    G --> M[Market data / imports]
-    G --> L[Lab / runs et résultats]
-    G --> B[Builder / génération IA]
-    L --> Q[File de jobs]
-    Q --> R[Runner / workers isolés]
-    R --> O[(Stockage objet : datasets et artefacts)]
-    M --> T[(TimescaleDB)]
-    L --> LD[(PostgreSQL Lab)]
-    A --> AD[(PostgreSQL Auth)]
-    W --> WD[(PostgreSQL Workspace)]
-    S --> SD[(PostgreSQL Strategy)]
-    B -->|Crée une version via contrat API| S
-```
+This is syntax/scope checking, not execution approval, type/style linting or
+section 10 AST security policy. A malicious program can be syntactically valid.
+Widget preview is a configurable dispatch boundary to an external gVisor
+controller, disabled by default. That controller/runtime is not shipped or
+validated by preview's HTTP-dispatch tests.
 
-| Service | Possède | Ne doit pas faire |
+## Lab execution boundary
+
+Lab's independent Go API resolves exact owned or actively installed strategy
+versions through Strategy's private authenticated execution-snapshot endpoint.
+It obtains an exact owned ready dataset/version from Market Data over a private
+authenticated HTTP contract, verifies its checksum, then freezes source,
+CSV, hashes and effective parameters, then atomically stores the queue entry
+and idempotency receipt in its own PostgreSQL database.
+
+The separate Go worker uses fenced, leased `FOR UPDATE SKIP LOCKED` claims.
+Only the worker can access the execution-daemon socket. It creates an offline,
+non-root, read-only runsc container for each job with no host mounts, credentials
+or Auth keys, bounded CPU/memory/PIDs/tmpfs/output and a worker-enforced deadline.
+The simulator is imported from branch #18; the resolved immutable image ID and
+base engine revision are recorded. The API never executes Python.
+
+Cancellation kills the labelled container before releasing its claim. Late
+results cannot overwrite cancellation or recovery. A replacement worker cleans
+expired claims and marks interrupted runs failed; it never automatically retries
+arbitrary code. Persisted events support authenticated WS replay. Progress is
+live; captured logs and strategy telemetry are delivered after completion.
+
+Execution is disabled by default and fails closed unless configuration, a fresh
+ready worker, the runsc runtime, image and pinned data are available. An optional
+operator-managed CSV adapter remains for standalone Lab without a configured
+Market Data origin; remote errors never fall back to it. No daemon-level deadline reaper
+is bundled: after total worker failure, cleanup requires a worker to return.
+Production runsc provisioning/validation remains a deployment task. See
+[Lab](../services/lab/README.md) for configuration and operational limitations.
+
+## Market Data boundary
+
+Market Data owns raw CSV/Parquet uploads, mappings, immutable ready versions,
+canonical CSV snapshots, indexing jobs and OHLCV points in its own TimescaleDB.
+The API and worker call a bounded private Python parser. They never execute
+uploaded code. Owner-scoped quotas, optimistic mapping revisions, idempotent
+validation and fenced claims bound concurrent work and preserve completed versions.
+
+Lab receives only the authorized version's canonical bytes and checksum; it
+persists its own frozen copy, so later mapping or deletion cannot change a run.
+Neither service reads the other's tables. The default feed is disabled. A trusted,
+file-configured HTTP adapter supplies real provider history/ticks; broker-specific
+connectors, per-user broker credentials and durable tick replay remain separate work.
+
+## Domain boundaries and remaining work
+
+| Domain | Owns / intended responsibility | Must not do |
 | --- | --- | --- |
-| Auth | Comptes, mots de passe, sessions, identités OAuth2, préférences de compte, clés API Runner ; MFA à venir | Conserver clés de brokers ou stratégies |
-| Workspace | Projets, layouts, préférences de workspace, références de widgets | Transformer chaque widget UI en microservice |
-| Strategy | Code/versions immuables, paramètres, import, diagnostics via analyseur isolé | Exécuter le code utilisateur ou autoriser un run sur un simple résultat de lint |
-| Market data | Catalogue, import, providers, OHLCV, versions des datasets | Orchestrer un backtest |
-| Lab | Admission/quota, lifecycle des runs, référence de stratégie/dataset, résultats | Bloquer une requête interactive pendant un calcul |
-| Runner | Consommer un job, lancer/arrêter les workers, déposer les artefacts | Être un endpoint public qui exécute du Python dans son processus |
-| Builder | Générer et expliquer une stratégie, validation préalable, quotas IA | Conserver l'identité ou devenir une dépendance obligatoire du Lab |
+| Auth | Accounts, sessions, OAuth identities, preferences and Runner API keys | Store broker secrets or private strategy source |
+| Workspace | Dashboards, layouts and widget references | Turn every UI widget into a microservice |
+| Widgets | Definitions, immutable versions and preview admission | Execute submitted code in its API |
+| Strategy | Source, versions, parameters, import and isolated syntax analysis | Treat successful lint as execution permission |
+| Marketplace | Publications, immutable shared snapshots, installations and reviews | Execute code during publication/install |
+| Lab | Run admission, durable queue, results, comparison and optimization | Hold an interactive HTTP request open for the calculation |
+| Lab execution worker | Run/stop isolated jobs and persist results | Become a public Python execution endpoint |
+| Market Data | Catalogue, CSV/Parquet imports, versioned OHLCV, feed adapter and tick subscriptions | Orchestrate backtests |
+| Runner domain (planned) | Remote/local agents, configurations and dedicated API-key admission | Be confused with the current internal Lab worker |
+| Builder (planned) | Strategy generation/explanation through authorized contracts | Become a mandatory dependency of Lab |
 
-PostgreSQL par propriétaire logique ; au début plusieurs bases/rôles peuvent
-partager un serveur, sans jointures entre services. TimescaleDB et stockage
-objet ne sont introduits que lors de l'extraction des données/calculs.
-Les contrats HTTP courts restent synchrones. Le futur lancement de backtest
-renvoie `202` et un `run_id`; une queue durable traite les jobs avec retry,
-idempotence, cancellation et dead-letter. Les événements sont versionnés
-(`run.completed.v1`) et une outbox évite les incohérences DB/queue.
+State belongs to each logical owner. Databases/roles may share infrastructure,
+but there are no cross-service application joins. Market Data uses TimescaleDB;
+object storage, broker/paper/live integration, event-bus/outbox delivery and dead-letter/retry
+policies beyond the current SQL queue are not implemented.
 
-## Prochaines tranches
-
-La section 7 est maintenant portée par Marketplace, avec module Go, image,
-configuration et PostgreSQL propres. Publication appelle Widgets/Strategy pour
-capturer une version détenue ; les consultations publiques et installations
-existantes ne dépendent pas de la disponibilité de ces services sources.
-Widgets/Strategy consultent à leur tour les installations via des adaptateurs
-HTTP locaux optionnels, sans accès SQL croisé et sans cycle de readiness.
-La section 6 reste différée à la demande de l'équipe.
-
-1. Brancher les formulaires du frontend, le cookie HttpOnly, les liens email
-   et le callback OAuth2 ; valider les chemins/payloads proposés avec le frontend.
-2. Déployer/valider le contrôleur sandbox de preview ; Strategy fournit désormais
-   CRUD/import/historique/restauration et diagnostics, pas l'exécution utilisateur.
-   Brancher Monaco et ajouter les politiques AST d'exécution séparément.
-3. Extraire Market data et Lab, figer stratégie/dataset par run.
-4. Introduire queue et workers séparés ; durcir l'exécution avec gVisor/Kata,
-   quotas CPU/mémoire/temps, réseau contrôlé et séparation des secrets.
-5. Builder puis broker/paper/live seulement après cette frontière d'exécution.
-
-Le socle ne fournit pas encore MFA, liaison explicite de comptes, JWKS ni
-rotation sans interruption. Les access tokens durent 15 minutes par défaut.
-Les clés publiques sont injectées par fichier et partagées par déploiement.
-Le rate limiter est en mémoire : un stockage commun sera nécessaire si plusieurs
-gateways doivent partager les quotas. Un reverse proxy de production devra
-fournir une politique explicite de confiance des IP ; ici `RemoteAddr` est
-utilisé et les headers forwarded du client ne sont pas des identités fiables.
+Next steps are to connect the frontend's sessions, email/OAuth callbacks, layouts
+and Monaco editor; validate reconstructed API conventions with that team; deploy
+and validate runsc and the separate preview controller; connect real provider adapters;
+then add the remaining Builder/security/usage/Runner/export domains as required.
+MFA, explicit account linking, JWKS/key-rotation workflows and distributed gateway
+quotas are still missing. Production deployments also need explicit IP trust,
+TLS/workload identities, secret lifecycle management and retention policies.

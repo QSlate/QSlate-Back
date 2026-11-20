@@ -1,49 +1,49 @@
-# Template microservice QSlate
+# QSlate microservice template
 
-Créer un service depuis la racine : `make new-service NAME=market-data`.
-Le générateur copie ce dossier, adapte le module/imports et refuse d'écraser un
-service existant. Les `.env` privés, clés, instructions AGENTS et binaires locaux
-ne sont jamais copiés. Les exemples de configuration restent copiables.
+Create a service from the repository root: `make new-service NAME=example-domain`.
+The generator copies this folder, rewrites its module/imports and refuses to
+overwrite an existing service. Private `.env` files, keys, AGENTS instructions
+and local binaries are never copied. Configuration examples are retained.
 
-Le résultat possède son propre `go.mod`, `go.sum`, `Dockerfile`, `Makefile`,
-`.dockerignore`, configuration et helpers techniques. Il ne dépend d'aucun
-source racine/voisin et se construit même hors du monorepo :
+The generated folder owns its `go.mod`, `go.sum`, `Dockerfile`, `Makefile`,
+`.dockerignore`, configuration and technical helpers. It requires no root or
+sibling source and builds outside the monorepo:
 
 ```bash
-cd services/market-data
+cd services/example-domain
 make test build
 make docker-build
 make run
 ```
 
-Les cibles imposent `GOWORK=off` et `-mod=readonly`. Le workspace du dépôt est
-facultatif : `go work use ./services/market-data` permet de l'ajouter à l'IDE.
-Le Makefile racine détecte les modules `services/*/go.mod` pour les tests/builds.
-Le générateur ne modifie ni Compose ni les routes publiques implicitement.
+Targets enforce `GOWORK=off` and `-mod=readonly`. The repository workspace is
+optional: `go work use ./services/example-domain` registers the service for IDE use.
+The root Makefile discovers `services/*/go.mod` for tests/builds. The generator
+does not implicitly change Compose or public routes.
 
-Le template seul se lance avec `make -C templates/microservice run` depuis la
-racine. Il expose `/healthz` et `/readyz` sur 8082 localement, 8080 dans l'image.
-Aucune base ou identité d'utilisateur fictive n'est requise pour ces probes.
+Run the unmodified template with `make -C templates/microservice run` from the
+root. It exposes `/healthz` and `/readyz` on port 8082 locally, 8080 in the image.
+These probes require neither a database nor a fabricated user identity.
 
-Ajouter les entités/interfaces dans `internal/domain`, les cas d'utilisation
-dans `internal/service`, SQL dans `internal/repository` et les handlers dans
-`internal/http`. Le point d'entrée assemble les dépendances. `internal/platform`
-contient des copies locales testées pour HTTP, configuration, JWT, validation
-des sessions, connexion PostgreSQL et migrations ; les utiliser selon le domaine.
-Ils ne sont pas des règles métier et ne doivent jamais importer un autre service.
-Modifier le template n'entraîne aucune mise à jour automatique des copies existantes.
+Add entities/interfaces to `internal/domain`, use cases to `internal/service`,
+SQL to `internal/repository` and handlers to `internal/http`. The entry point
+assembles dependencies. `internal/platform` contains tested local helpers for
+HTTP, configuration, JWT, live sessions, PostgreSQL and migrations; use only what
+the domain needs. Helpers contain no business rules or imports of another service.
+Changing the template does not automatically update existing copies.
 
-Pour chaque route privée, vérifier le JWT **et** la session vivante via Auth,
-puis le propriétaire dans le service. Le gateway ne signe aucun token. Pour une
-base, embarquer les migrations propres au service et attribuer un namespace de
-verrou distinct. Copier uniquement la clé publique aux consommateurs d'Auth.
+Every private business route must verify the JWT and live Auth session, then
+check resource ownership in its service. The gateway never signs tokens. For
+persistence, embed service-owned migrations and use a distinct advisory-lock
+namespace. Auth consumers receive only the public key, never the signing key.
 
-Pour le déploiement, ajouter le contrat OpenAPI et un service dans le Compose
-racine avec `build.context: ./services/market-data`, ses réseaux/credentials,
-puis les routes explicites dans `gateway/config/routes.json`. Aucun endpoint
-ne doit apparaître avant son implémentation et ses tests d'autorisation.
+For deployment, add the OpenAPI contract and a root Compose service with
+`build.context: ./services/example-domain`, its own networks/credentials, then
+explicit routes in `gateway/config/routes.json`. Never publish an endpoint
+before its implementation and authorization tests exist.
 
-Chaque module doit conserver des tests autonomes et des tests d'intégration
-dans `internal/repository` lorsqu'il utilise SQL. Les tests transverses restent
-à la racine. `make test-standalone` vérifie les builds hors dépôt ; `make test`
-parcourt tous les modules avec leurs propres dépendances.
+Keep standalone unit tests and, when SQL is used, integration tests in
+`internal/repository`. Cross-service tests stay at the root. `make test-standalone`
+checks builds outside the repository; `make test` iterates over every module with
+its own dependencies. Keep generated documentation in English without parallel
+French-language copies.

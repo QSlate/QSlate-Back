@@ -105,7 +105,8 @@ Before using a real controller, its operator must implement and verify:
   job status/result access (not added to the seven PDF operations here).
 
 There is no in-process `exec`, shell compilation or fallback to the existing
-Python backtest runner. Readiness checks Auth/database, not the optional disabled
+legacy Python backtest runner. Lab's separate backtest worker does not implement
+this preview-controller protocol. Readiness checks Auth/database, not the optional disabled
 controller. Production workload authentication/mTLS is still a deployment concern.
 
 ## Development
