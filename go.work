@@ -4,9 +4,10 @@ use (
 	.
 	./gateway
 	./services/auth
-	./services/workspace
-	./services/widgets
-	./services/strategy
+	./services/lab
 	./services/marketplace
+	./services/strategy
+	./services/widgets
+	./services/workspace
 	./templates/microservice
 )

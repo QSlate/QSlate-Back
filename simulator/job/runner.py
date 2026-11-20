@@ -167,13 +167,28 @@ def _run_analytics_modules(
     return analytics_results
 
 
-def run_job(config: JobConfig) -> Tuple[JobSummary, Optional[SimulationResult], str]:
+class BoundedCapture(io.StringIO):
+    """Bound untrusted strategy logs in the Lab transport, retaining a prefix."""
+    def __init__(self, limit=None):
+        super().__init__()
+        self.remaining = limit
+
+    def write(self, text):
+        if self.remaining is None:
+            return super().write(text)
+        encoded = text.encode("utf-8", errors="replace")[:self.remaining]
+        self.remaining -= len(encoded)
+        super().write(encoded.decode("utf-8", errors="ignore"))
+        return len(text)
+
+
+def run_job(config: JobConfig, on_progress=None, max_log_bytes=None) -> Tuple[JobSummary, Optional[SimulationResult], str]:
     """Executes a backtest job in an isolated context with stdout/stderr capture."""
     job_id = config.job_id or f"job_{uuid.uuid4().hex[:12]}"
     start_time = time.time()
 
-    stdout_capture = io.StringIO()
-    stderr_capture = io.StringIO()
+    stdout_capture = BoundedCapture(max_log_bytes)
+    stderr_capture = BoundedCapture(max_log_bytes)
 
     try:
         data_path = _resolve_data_path(config)
@@ -197,7 +212,7 @@ def run_job(config: JobConfig) -> Tuple[JobSummary, Optional[SimulationResult], 
                 slippage_bps=config.backtest.slippage_bps,
                 custom_indicators=custom_indicators,
             )
-            result = engine.run()
+            result = engine.run(on_progress=on_progress)
 
             # Execute external post-processing analytics modules
             ext_analytics = _run_analytics_modules(config, result, df_market)

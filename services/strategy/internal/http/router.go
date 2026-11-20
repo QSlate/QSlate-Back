@@ -57,11 +57,46 @@ func New(svc *service.Strategies, cfg service.Config, verifier token.Verifier, s
 	private("POST /strategies/{strategyId}/restore", r.restore)
 	private("POST /strategies/lint", r.lint)
 	private("POST /catalogue/snapshot", r.snapshot)
+	private("POST /catalogue/execution-snapshot", r.executionSnapshot)
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx, cancel := context.WithTimeout(req.Context(), 10*time.Second)
 		defer cancel()
 		mux.ServeHTTP(w, req.WithContext(ctx))
 	})
+}
+
+// Execution accepts owned versions and currently installed pinned strategies.
+// Retained historical grants alone must not authorize a new execution.
+func (r *router) executionSnapshot(w http.ResponseWriter, req *http.Request) {
+	var in struct {
+		ResourceID string `json:"resource_id"`
+		VersionID  string `json:"version_id"`
+	}
+	if !httpx.Decode(w, req, &in) {
+		return
+	}
+	if in.VersionID == "" {
+		r.fail(w, req, domain.ErrInvalid)
+		return
+	}
+	if marketplace.IsReference(in.ResourceID) {
+		v, err := r.market.Resolve(req.Context(), in.ResourceID, in.VersionID, false)
+		if err == nil && v.Kind != "strategy" {
+			err = marketplace.ErrNotFound
+		}
+		if err != nil {
+			r.fail(w, req, err)
+			return
+		}
+		httpx.JSON(w, 200, map[string]any{"name": v.Name, "language": v.Language, "source": v.Source, "configuration": v.Configuration})
+		return
+	}
+	v, err := r.svc.Snapshot(req.Context(), uid(req), in.ResourceID, in.VersionID)
+	if err != nil {
+		r.fail(w, req, err)
+		return
+	}
+	httpx.JSON(w, 200, map[string]any{"name": v.Name, "language": "python", "source": v.Source, "configuration": v.Parameters})
 }
 
 func (r *router) snapshot(w http.ResponseWriter, req *http.Request) {

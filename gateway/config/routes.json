@@ -53,5 +53,17 @@
   {"method":"POST","path":"/qslate/v1/marketplace/items/{itemId}/install","upstream":"${MARKETPLACE_SERVICE_URL}","target_path":"/marketplace/items/{itemId}/install","auth_required":true,"rate_limited":false},
   {"method":"DELETE","path":"/qslate/v1/marketplace/items/{itemId}/installation","upstream":"${MARKETPLACE_SERVICE_URL}","target_path":"/marketplace/items/{itemId}/installation","auth_required":true,"rate_limited":false},
   {"method":"GET","path":"/qslate/v1/marketplace/items/{itemId}/reviews","upstream":"${MARKETPLACE_SERVICE_URL}","target_path":"/marketplace/items/{itemId}/reviews","auth_required":false,"rate_limited":false},
-  {"method":"POST","path":"/qslate/v1/marketplace/items/{itemId}/reviews","upstream":"${MARKETPLACE_SERVICE_URL}","target_path":"/marketplace/items/{itemId}/reviews","auth_required":true,"rate_limited":false}
+  {"method":"POST","path":"/qslate/v1/marketplace/items/{itemId}/reviews","upstream":"${MARKETPLACE_SERVICE_URL}","target_path":"/marketplace/items/{itemId}/reviews","auth_required":true,"rate_limited":false},
+  {"method":"POST","path":"/qslate/v1/backtests/run","upstream":"${LAB_SERVICE_URL}","target_path":"/backtests/run","auth_required":true,"rate_limited":false},
+  {"method":"POST","path":"/qslate/v1/backtests/{backtestId}/cancel","upstream":"${LAB_SERVICE_URL}","target_path":"/backtests/{backtestId}/cancel","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/backtests/{backtestId}/status","upstream":"${LAB_SERVICE_URL}","target_path":"/backtests/{backtestId}/status","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/backtests","upstream":"${LAB_SERVICE_URL}","target_path":"/backtests","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/backtests/{backtestId}/summary","upstream":"${LAB_SERVICE_URL}","target_path":"/backtests/{backtestId}/summary","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/backtests/{backtestId}/trades","upstream":"${LAB_SERVICE_URL}","target_path":"/backtests/{backtestId}/trades","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/backtests/{backtestId}/equity-curve","upstream":"${LAB_SERVICE_URL}","target_path":"/backtests/{backtestId}/equity-curve","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/backtests/{backtestId}/logs","upstream":"${LAB_SERVICE_URL}","target_path":"/backtests/{backtestId}/logs","auth_required":true,"rate_limited":false},
+  {"method":"DELETE","path":"/qslate/v1/backtests/{backtestId}","upstream":"${LAB_SERVICE_URL}","target_path":"/backtests/{backtestId}","auth_required":true,"rate_limited":false},
+  {"method":"POST","path":"/qslate/v1/backtests/compare","upstream":"${LAB_SERVICE_URL}","target_path":"/backtests/compare","auth_required":true,"rate_limited":false},
+  {"method":"POST","path":"/qslate/v1/backtests/optimize","upstream":"${LAB_SERVICE_URL}","target_path":"/backtests/optimize","auth_required":true,"rate_limited":false},
+  {"method":"GET","path":"/qslate/v1/ws/backtests/{backtestId}/stream","upstream":"${LAB_SERVICE_URL}","target_path":"/ws/backtests/{backtestId}/stream","auth_required":false,"rate_limited":false}
 ]

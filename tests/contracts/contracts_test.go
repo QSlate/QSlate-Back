@@ -37,11 +37,20 @@ func TestGatewayPublishesOnlyImplementedContract(t *testing.T) {
 	readJSON(t, "../../gateway/config/routes.json", &routes)
 	published := map[string]bool{}
 	for _, route := range routes {
+		if route.Path == "/qslate/v1/ws/backtests/{backtestId}/stream" {
+			if route.Method != "GET" || route.Upstream != "${LAB_SERVICE_URL}" || route.TargetPath != "/ws/backtests/{backtestId}/stream" || route.AuthRequired {
+				t.Fatal("invalid first-frame authenticated Lab stream route")
+			}
+			continue
+		}
 		key := route.Method + " " + route.Path
 		if published[key] {
 			t.Fatalf("duplicate route %s", key)
 		}
 		published[key] = true
+		if strings.HasPrefix(route.Path, "/qslate/v1/backtests") && (!route.AuthRequired || route.Upstream != "${LAB_SERVICE_URL}" || route.TargetPath != strings.TrimPrefix(route.Path, "/qslate/v1")) {
+			t.Fatal("invalid Lab route/authentication")
+		}
 		operation, found := spec.Paths[route.Path][strings.ToLower(route.Method)]
 		if !found || operation.Implementation != "implemented" {
 			t.Fatalf("route absent or planned in contract: %s", key)
@@ -86,8 +95,8 @@ func TestGatewayPublishesOnlyImplementedContract(t *testing.T) {
 			}
 		}
 	}
-	if count != 98 || implemented != 55 {
-		t.Fatalf("REST operations: %d total / %d implemented, expected 95+3 / 14+3+11+7+9+11", count, implemented)
+	if count != 98 || implemented != 66 {
+		t.Fatalf("REST operations: %d total / %d implemented, expected 98 / 66", count, implemented)
 	}
 }
 
@@ -104,6 +113,8 @@ func TestServiceViewsReferenceEveryCanonicalPath(t *testing.T) {
 		{"../../services/strategy/openapi.yaml", "/qslate/v1/strategies", 6},
 		{"../../docs/marketplace.openapi.yaml", "/qslate/v1/marketplace", 7},
 		{"../../services/marketplace/openapi.yaml", "/qslate/v1/marketplace", 7},
+		{"../../docs/lab.openapi.yaml", "/qslate/v1/backtests", 11},
+		{"../../services/lab/openapi.yaml", "/qslate/v1/backtests", 11},
 	} {
 		path := viewSpec.path
 		var view struct {

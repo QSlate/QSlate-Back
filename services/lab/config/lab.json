@@ -1,0 +1,22 @@
+{
+  "max_dataset_bytes": 4194304,
+  "max_dataset_rows": 20000,
+  "max_artifact_bytes": 8388608,
+  "max_log_bytes": 32768,
+  "max_optimization_runs": 25,
+  "max_outstanding_runs": 50,
+  "max_page_size": 1000,
+  "data_root": "/data",
+  "datasets": [],
+  "allowed_origins": ["http://localhost:3000"],
+  "execution": {
+    "enabled": false,
+    "image": "qslate-simulator:fb63ed3-lab-v1",
+    "runtime": "runsc",
+    "timeout_seconds": 120,
+    "memory_mb": 512,
+    "cpus": 1,
+    "pids": 64,
+    "work_mb": 64
+  }
+}

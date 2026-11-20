@@ -3156,7 +3156,7 @@
           "lab"
         ],
         "x-owner": "lab",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "pdf-visible",
         "responses": {
           "202": {
@@ -3199,6 +3199,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Execution isolation, worker, pinned dataset or session authority unavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -3235,7 +3238,7 @@
           "lab"
         ],
         "x-owner": "lab",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "pdf-visible",
         "responses": {
           "202": {
@@ -3271,6 +3274,9 @@
           },
           "502": {
             "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "description": "Execution isolation, worker, pinned dataset or session authority unavailable"
           },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
@@ -3308,7 +3314,7 @@
           "lab"
         ],
         "x-owner": "lab",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "pdf-visible",
         "responses": {
           "200": {
@@ -3345,6 +3351,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Execution isolation, worker, pinned dataset or session authority unavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -3371,7 +3380,7 @@
           "lab"
         ],
         "x-owner": "lab",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "pdf-visible",
         "responses": {
           "200": {
@@ -3379,7 +3388,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Page"
+                  "$ref": "#/components/schemas/LabHistory"
                 }
               }
             }
@@ -3407,6 +3416,9 @@
           },
           "502": {
             "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "description": "Execution isolation, worker, pinned dataset or session authority unavailable"
           },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
@@ -3441,7 +3453,7 @@
           "lab"
         ],
         "x-owner": "lab",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "pdf-visible",
         "responses": {
           "200": {
@@ -3478,6 +3490,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Execution isolation, worker, pinned dataset or session authority unavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -3504,7 +3519,7 @@
           "lab"
         ],
         "x-owner": "lab",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "pdf-visible",
         "responses": {
           "200": {
@@ -3540,6 +3555,9 @@
           },
           "502": {
             "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "description": "Execution isolation, worker, pinned dataset or session authority unavailable"
           },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
@@ -3584,7 +3602,7 @@
           "lab"
         ],
         "x-owner": "lab",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "pdf-visible",
         "responses": {
           "200": {
@@ -3620,6 +3638,9 @@
           },
           "502": {
             "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "description": "Execution isolation, worker, pinned dataset or session authority unavailable"
           },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
@@ -3664,7 +3685,7 @@
           "lab"
         ],
         "x-owner": "lab",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "pdf-visible",
         "responses": {
           "200": {
@@ -3700,6 +3721,9 @@
           },
           "502": {
             "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "description": "Execution isolation, worker, pinned dataset or session authority unavailable"
           },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
@@ -3744,7 +3768,7 @@
           "lab"
         ],
         "x-owner": "lab",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "pdf-visible",
         "responses": {
           "204": {
@@ -3774,6 +3798,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Execution isolation, worker, pinned dataset or session authority unavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -3800,7 +3827,7 @@
           "lab"
         ],
         "x-owner": "lab",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "pdf-visible",
         "responses": {
           "200": {
@@ -3843,6 +3870,9 @@
           "502": {
             "$ref": "#/components/responses/BadGateway"
           },
+          "503": {
+            "description": "Execution isolation, worker, pinned dataset or session authority unavailable"
+          },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
           }
@@ -3867,7 +3897,7 @@
           "lab"
         ],
         "x-owner": "lab",
-        "x-implementation": "planned",
+        "x-implementation": "implemented",
         "x-path-origin": "pdf-visible",
         "responses": {
           "202": {
@@ -3875,7 +3905,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Job"
+                  "$ref": "#/components/schemas/LabOptimization"
                 }
               }
             }
@@ -3909,6 +3939,9 @@
           },
           "502": {
             "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "description": "Execution isolation, worker, pinned dataset or session authority unavailable"
           },
           "504": {
             "$ref": "#/components/responses/GatewayTimeout"
@@ -7644,6 +7677,40 @@
               "failed",
               "cancelled"
             ]
+          },
+          "progress": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "input": {
+            "$ref": "#/components/schemas/RunInput"
+          },
+          "optimization_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "error": {
+            "type": "string"
+          },
+          "engine_image": {
+            "type": "string"
+          },
+          "engine_revision": {
+            "type": "string"
+          },
+          "strategy_sha256": {
+            "type": "string"
+          },
+          "dataset_sha256": {
+            "type": "string"
           }
         },
         "required": [
@@ -8563,7 +8630,30 @@
               "cloud",
               "local"
             ],
-            "default": "cloud"
+            "default": "cloud",
+            "description": "Only cloud is currently supported. local requires the future section 12 Runner."
+          },
+          "window": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 20
+          },
+          "commission_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 0.1,
+            "default": 0
+          },
+          "slippage_bps": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000,
+            "default": 0
+          },
+          "class_name": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$"
           }
         },
         "required": [
@@ -8585,10 +8675,7 @@
           },
           "metrics": {
             "type": "object",
-            "additionalProperties": {
-              "type": "number",
-              "nullable": true
-            }
+            "additionalProperties": true
           },
           "strategy_version_id": {
             "type": "string",
@@ -8691,7 +8778,13 @@
           "max_runs": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 10000
+            "maximum": 100,
+            "description": "Also bounded by Lab configuration (25 by default). Grid search must fit completely."
+          },
+          "seed": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Optional deterministic trial sampling seed; zero generates a seed returned in the response."
           }
         },
         "required": [
@@ -9717,6 +9810,48 @@
         "required": [
           "items"
         ]
+      },
+      "LabOptimization": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "optimization_id",
+          "seed",
+          "backtests"
+        ],
+        "properties": {
+          "optimization_id": {
+            "type": "string"
+          },
+          "seed": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "backtests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BacktestJob"
+            }
+          }
+        }
+      },
+      "LabHistory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BacktestJob"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
       }
     },
     "responses": {

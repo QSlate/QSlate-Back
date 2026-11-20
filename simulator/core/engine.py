@@ -38,7 +38,7 @@ class BacktestEngine:
         self.slippage_bps = float(slippage_bps)
         self.custom_indicators = custom_indicators or {}
 
-    def run(self) -> SimulationResult:
+    def run(self, on_progress=None) -> SimulationResult:
         n_rows = len(self.data)
         if n_rows <= self.window:
             raise ValueError(
@@ -119,6 +119,11 @@ class BacktestEngine:
 
             # 5. Snapshot equity at close of bar
             portfolio.record_snapshot(candle)
+            # Optional transport hook; does not change simulation calculations.
+            processed = i - self.window + 1
+            total = n_rows - self.window
+            if on_progress and (processed % max(1, total // 100) == 0 or processed == total):
+                on_progress(processed, total)
 
         # End of simulation: Force close remaining open positions
         final_timestamp = self.data.index[-1]
