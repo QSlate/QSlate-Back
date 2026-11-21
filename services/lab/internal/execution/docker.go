@@ -29,13 +29,9 @@ func (d *Docker) Preflight(ctx context.Context) error {
 	if !d.Config.Execution.Enabled {
 		return domain.ErrUnavailable
 	}
-	runtime := d.Config.Execution.Runtime
-	if runtime == "" {
-		runtime = "runsc"
-	}
-	b, e := exec.CommandContext(ctx, "docker", "info", "--format", fmt.Sprintf(`{{json (index .Runtimes "%s")}}`, runtime)).Output()
+	b, e := exec.CommandContext(ctx, "docker", "info", "--format", `{{json .Runtimes.runsc}}`).Output()
 	if e != nil || string(bytes.TrimSpace(b)) == "null" || len(bytes.TrimSpace(b)) == 0 {
-		return fmt.Errorf("%s runtime unavailable", runtime)
+		return errors.New("runsc runtime unavailable")
 	}
 	b, e = exec.CommandContext(ctx, "docker", "image", "inspect", "--format", "{{.Id}}", d.Config.Execution.Image).Output()
 	if e != nil {

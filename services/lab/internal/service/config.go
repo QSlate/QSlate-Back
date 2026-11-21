@@ -71,7 +71,7 @@ func LoadConfig(path string) (Config, error) {
 }
 func (c Config) Validate() error {
 	e := c.Execution
-	if c.MaxDatasetBytes < 1 || c.MaxDatasetBytes > 16<<20 || c.MaxDatasetRows < 2 || c.MaxDatasetRows > 100000 || c.MaxArtifactBytes < 1024 || c.MaxArtifactBytes > 32<<20 || c.MaxLogBytes < 1 || c.MaxLogBytes > 65536 || c.MaxOptimizationRuns < 1 || c.MaxOptimizationRuns > 100 || c.MaxOutstandingRuns < c.MaxOptimizationRuns || c.MaxOutstandingRuns > 1000 || c.MaxPageSize < 1 || c.MaxPageSize > 1000 || c.DataRoot == "" || e.TimeoutSeconds < 1 || e.TimeoutSeconds > 600 || e.MemoryMB < 128 || e.MemoryMB > 4096 || e.CPUs < 1 || e.CPUs > 8 || e.PIDs < 16 || e.PIDs > 256 || e.WorkMB < 16 || e.WorkMB > 256 || (e.Runtime != "runsc" && e.Runtime != "runc") || !regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9/_.:@-]{0,255}$`).MatchString(e.Image) {
+	if c.MaxDatasetBytes < 1 || c.MaxDatasetBytes > 16<<20 || c.MaxDatasetRows < 2 || c.MaxDatasetRows > 100000 || c.MaxArtifactBytes < 1024 || c.MaxArtifactBytes > 32<<20 || c.MaxLogBytes < 1 || c.MaxLogBytes > 65536 || c.MaxOptimizationRuns < 1 || c.MaxOptimizationRuns > 100 || c.MaxOutstandingRuns < c.MaxOptimizationRuns || c.MaxOutstandingRuns > 1000 || c.MaxPageSize < 1 || c.MaxPageSize > 1000 || c.DataRoot == "" || e.TimeoutSeconds < 1 || e.TimeoutSeconds > 600 || e.MemoryMB < 128 || e.MemoryMB > 4096 || e.CPUs < 1 || e.CPUs > 8 || e.PIDs < 16 || e.PIDs > 256 || e.WorkMB < 16 || e.WorkMB > 256 || e.Runtime != "runsc" || !regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9/_.:@-]{0,255}$`).MatchString(e.Image) {
 		return errors.New("invalid Lab limits; isolated runsc runtime required")
 	}
 	seen := map[string]bool{}

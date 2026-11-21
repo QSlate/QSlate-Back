@@ -142,8 +142,7 @@ func (l *Lab) frozen(ctx context.Context, owner int64, in domain.RunInput) (doma
 		if e == nil {
 			e = validateCSV(csv, in.Window, l.Config.MaxDatasetRows)
 		}
-	}
-	if csv == "" {
+	} else {
 		csv, sum, e = l.Config.Dataset(owner, in.DatasetID, in.DatasetVersionID, in.Window)
 	}
 	if e != nil {
