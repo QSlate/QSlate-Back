@@ -7,12 +7,20 @@
   "max_outstanding_runs": 50,
   "max_page_size": 1000,
   "data_root": "/data",
-  "datasets": [],
+  "datasets": [
+    {
+      "id": "binance-eth-4h",
+      "version_id": "v1",
+      "owner_id": 0,
+      "file": "eth_4h.csv",
+      "sha256": "ffea72bd928e066b6db6806a1c1b9f878cd189d88f68acc9eb1a7760fbc7152d"
+    }
+  ],
   "allowed_origins": ["http://localhost:3000"],
   "execution": {
-    "enabled": false,
+    "enabled": true,
     "image": "qslate-simulator:fb63ed3-lab-v1",
-    "runtime": "runsc",
+    "runtime": "runc",
     "timeout_seconds": 120,
     "memory_mb": 512,
     "cpus": 1,
