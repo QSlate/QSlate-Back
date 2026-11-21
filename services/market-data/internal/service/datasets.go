@@ -27,13 +27,18 @@ type Data struct {
 	Repo    Repository
 	Decoder Decoder
 	Config  Config
+	public  *PublicCatalogue
 }
 
 func New(repo Repository, decoder Decoder, c Config) (*Data, error) {
 	if e := c.Validate(); e != nil {
 		return nil, e
 	}
-	return &Data{repo, decoder, c}, nil
+	public, e := LoadPublic(c)
+	if e != nil {
+		return nil, e
+	}
+	return &Data{Repo: repo, Decoder: decoder, Config: c, public: public}, nil
 }
 func ValidKey(s string) bool {
 	if len(s) < 16 || len(s) > 128 {

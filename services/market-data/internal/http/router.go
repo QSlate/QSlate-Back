@@ -126,11 +126,11 @@ func (r *router) snapshot(w http.ResponseWriter, req *http.Request) {
 	if !httpx.Decode(w, req, &in) {
 		return
 	}
-	if !domain.ValidID(in.DatasetID) || !domain.ValidID(in.VersionID) {
+	if (!domain.ValidID(in.DatasetID) && !service.ValidPublicID(in.DatasetID)) || in.VersionID == "" {
 		r.fail(w, domain.ErrInvalid)
 		return
 	}
-	d, e := r.svc.Repo.Snapshot(req.Context(), uid(req), in.DatasetID, in.VersionID)
+	d, e := r.svc.Snapshot(req.Context(), uid(req), in.DatasetID, in.VersionID)
 	r.respond(w, 200, d, e)
 }
 func query(req *http.Request, allowed ...string) (url.Values, error) {
@@ -192,7 +192,7 @@ func (r *router) symbols(w http.ResponseWriter, req *http.Request) {
 		r.fail(w, e)
 		return
 	}
-	items, e := r.svc.Repo.Symbols(req.Context(), uid(req))
+	items, e := r.svc.Symbols(req.Context(), uid(req))
 	if e != nil {
 		r.fail(w, e)
 		return
@@ -239,6 +239,10 @@ func (r *router) history(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		cursor = &t
+	}
+	if h, found, publicErr := r.svc.PublicHistory(q.Get("symbol"), q.Get("version_id"), resolution, start, end, n, cursor); found {
+		r.respond(w, 200, h, publicErr)
+		return
 	}
 	if !strings.HasPrefix(q.Get("symbol"), "custom:") {
 		h, e := r.feeds.History(req.Context(), uid(req), q.Get("symbol"), resolution, start, end, q.Get("cursor"), n)

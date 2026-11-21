@@ -31,6 +31,8 @@ htmlcov/
 
 # Local market datasets (existing exclusion)
 *.csv
+!services/market-data/data/
+!services/market-data/data/*.csv
 
 # Simulator execution outputs and artifacts
 artifacts/

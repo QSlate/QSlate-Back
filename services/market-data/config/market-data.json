@@ -3,5 +3,14 @@
  "max_owner_bytes":67108864,"max_versions":5,"max_page_size":1000,
  "parser_timeout_seconds":6,"max_snapshot_bytes":4194304,"require_timescale":true,
  "allowed_origins":["http://localhost:3000"],
+ "public_data_root":"../data",
+ "public_datasets":[
+  {"id":"public-btc-usdt-1h","version_id":"2024-03-19-v1","symbol":"BTC/USDT@1h","name":"Bitcoin / Tether — 1 hour","resolution":"1h","file":"btc-usdt-1h.csv","sha256":"3eb3aab34b515723516a8c4eac3f85ac9c73e20678ac3cc4a9d0523c5bae51da"},
+  {"id":"public-btc-usdt-1d","version_id":"2024-03-19-v1","symbol":"BTC/USDT@1d","name":"Bitcoin / Tether — 1 day","resolution":"1d","file":"btc-usdt-1h.csv","sha256":"3eb3aab34b515723516a8c4eac3f85ac9c73e20678ac3cc4a9d0523c5bae51da"},
+  {"id":"public-eth-usdt-1h","version_id":"2024-03-19-v1","symbol":"ETH/USDT@1h","name":"Ether / Tether — 1 hour","resolution":"1h","file":"eth-usdt-1h.csv","sha256":"34a1d6c4b6acb4336c6ba394305df3518d325621c7207f0191eea03f0b97fddd"},
+  {"id":"public-eth-usdt-1d","version_id":"2024-03-19-v1","symbol":"ETH/USDT@1d","name":"Ether / Tether — 1 day","resolution":"1d","file":"eth-usdt-1h.csv","sha256":"34a1d6c4b6acb4336c6ba394305df3518d325621c7207f0191eea03f0b97fddd"},
+  {"id":"public-aapl-1h","version_id":"2024-03-19-v1","symbol":"AAPL@1h","name":"Apple — 1 hour","resolution":"1h","file":"aapl-1h.csv","sha256":"bd7d7c51d80ea8d171693d4f622e8f2e9e32d7355c3a830f6b6db3398aaad7b5"},
+  {"id":"public-aapl-1d","version_id":"2024-03-19-v1","symbol":"AAPL@1d","name":"Apple — 1 day","resolution":"1d","file":"aapl-1h.csv","sha256":"bd7d7c51d80ea8d171693d4f622e8f2e9e32d7355c3a830f6b6db3398aaad7b5"}
+ ],
  "live":{"enabled":false,"origin_env":"MARKET_DATA_FEED_URL","token_env":"MARKET_DATA_FEED_TOKEN","allow_insecure_http":false,"poll_seconds":2,"max_symbols":10,"max_streams":32,"symbols":[]}
 }

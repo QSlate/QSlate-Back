@@ -103,11 +103,12 @@ type Snapshot struct {
 	RowCount  int    `json:"row_count"`
 }
 type Symbol struct {
-	Symbol    string `json:"symbol"`
-	Name      string `json:"name"`
-	DatasetID string `json:"dataset_id,omitempty"`
-	VersionID string `json:"version_id,omitempty"`
-	Live      bool   `json:"live"`
+	Symbol     string `json:"symbol"`
+	Name       string `json:"name"`
+	DatasetID  string `json:"dataset_id,omitempty"`
+	VersionID  string `json:"version_id,omitempty"`
+	Resolution string `json:"resolution,omitempty"`
+	Live       bool   `json:"live"`
 }
 type Tick struct {
 	ID       string    `json:"id"`

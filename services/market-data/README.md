@@ -21,6 +21,12 @@ an unknown one (404). The private service omits the public prefix.
 | POST | `/data/custom/{datasetId}/validate` | Durable validation/indexing admission; 202 |
 | DELETE | `/data/custom/{datasetId}` | Delete owned raw data, versions, points and validation jobs; 204 |
 
+The default catalogue also exposes frozen, repository-owned BTC/USDT, ETH/USDT
+and AAPL datasets at `1h` and derived `1d` resolutions. Their stable `public-*`
+dataset IDs and version IDs can be passed directly to Lab, so a new account does
+not need to upload a file. Public bytes are checksum-verified at service startup;
+provenance and regeneration instructions are in [data/README.md](data/README.md).
+
 Reconstructed paths/payloads are explicit implementation conventions, not complete
 paths recovered from the truncated PDF. [OpenAPI](openapi.yaml) references the
 root canonical contract.
@@ -85,7 +91,8 @@ No automatic storage TTL or distributed request-rate limiter is bundled.
 
 ## History and Lab integration
 
-An imported dataset's symbol is `custom:<datasetId>`. History requires `symbol`,
+An imported dataset's symbol is `custom:<datasetId>`; bundled symbols use their
+catalogue value such as `BTC/USDT@1h`. History requires `symbol`,
 `start`, `end`, and `resolution`. The time range is `[start,end)`, at most 366 days.
 Resolutions are `raw`, `1m`, `5m`, `15m`, `1h`, `1d`; aggregates use first open,
 maximum high, minimum low, last close and summed volume. Partial buckets can
