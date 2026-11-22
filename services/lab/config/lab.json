@@ -11,6 +11,7 @@
   "allowed_origins": ["http://localhost:3000"],
   "execution": {
     "enabled": false,
+    "mode": "isolated",
     "image": "qslate-simulator:fb63ed3-lab-v1",
     "runtime": "runsc",
     "timeout_seconds": 120,

@@ -88,7 +88,7 @@ func (r *router) executionSnapshot(w http.ResponseWriter, req *http.Request) {
 			r.fail(w, req, err)
 			return
 		}
-		httpx.JSON(w, 200, map[string]any{"name": v.Name, "language": v.Language, "source": v.Source, "configuration": v.Configuration})
+		httpx.JSON(w, 200, map[string]any{"name": v.Name, "language": v.Language, "source": v.Source, "configuration": v.Configuration, "parameter_schema": v.ParameterSchema})
 		return
 	}
 	v, err := r.svc.Snapshot(req.Context(), uid(req), in.ResourceID, in.VersionID)
@@ -96,7 +96,7 @@ func (r *router) executionSnapshot(w http.ResponseWriter, req *http.Request) {
 		r.fail(w, req, err)
 		return
 	}
-	httpx.JSON(w, 200, map[string]any{"name": v.Name, "language": "python", "source": v.Source, "configuration": v.Parameters})
+	httpx.JSON(w, 200, map[string]any{"name": v.Name, "language": "python", "source": v.Source, "configuration": v.Parameters, "parameter_schema": v.ParameterSchema})
 }
 
 func (r *router) snapshot(w http.ResponseWriter, req *http.Request) {
@@ -112,7 +112,7 @@ func (r *router) snapshot(w http.ResponseWriter, req *http.Request) {
 		r.fail(w, req, err)
 		return
 	}
-	httpx.JSON(w, 200, map[string]any{"name": v.Name, "language": "python", "source": v.Source, "configuration": v.Parameters})
+	httpx.JSON(w, 200, map[string]any{"name": v.Name, "language": "python", "source": v.Source, "configuration": v.Parameters, "parameter_schema": v.ParameterSchema})
 }
 func (r *router) fail(w http.ResponseWriter, req *http.Request, err error) {
 	switch {

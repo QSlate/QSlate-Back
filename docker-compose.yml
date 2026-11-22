@@ -260,11 +260,13 @@ services:
       AUTH_SERVICE_URL: http://auth:8080
       STRATEGY_SERVICE_URL: http://strategy:8080
       JWT_PUBLIC_KEY_FILE: /run/secrets/auth-public.pem
-      LAB_CONFIG_FILE: /app/config/lab.json
+      LAB_CONFIG_FILE: ${LAB_CONFIG_FILE:-/app/config/lab.json}
+      LAB_ALLOW_LOCAL_EXECUTION: ${LAB_ALLOW_LOCAL_EXECUTION:-false}
       MARKET_DATA_SERVICE_URL: http://market-data:8080
     volumes:
       - ./.secrets/auth-public.pem:/run/secrets/auth-public.pem:ro,Z
       - ./services/lab/config/lab.json:/app/config/lab.json:ro,Z
+      - ./services/lab/config/lab.local.json:/app/config/lab.local.json:ro,Z
       - ./services/lab/data:/data:ro,Z
     depends_on:
       lab-db:
@@ -293,10 +295,12 @@ services:
     group_add: ["${LAB_DOCKER_GID:-0}"]
     environment:
       DATABASE_URL: postgres://qslate:${LAB_DATABASE_PASSWORD:?Run make init}@lab-db:5432/qslate_lab?sslmode=disable
-      LAB_CONFIG_FILE: /app/config/lab.json
+      LAB_CONFIG_FILE: ${LAB_CONFIG_FILE:-/app/config/lab.json}
+      LAB_ALLOW_LOCAL_EXECUTION: ${LAB_ALLOW_LOCAL_EXECUTION:-false}
       DOCKER_HOST: unix:///var/run/docker.sock
     volumes:
       - ./services/lab/config/lab.json:/app/config/lab.json:ro,Z
+      - ./services/lab/config/lab.local.json:/app/config/lab.local.json:ro,Z
       - ${LAB_DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
     depends_on:
       lab-db:

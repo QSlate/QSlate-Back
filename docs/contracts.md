@@ -317,6 +317,11 @@ aggregation uses TimescaleDB points, not fabricated candles. A partial first
 bucket can start before `start`. Live/provider history requires a configured
 trusted feed adapter; imported CSV is not replayed as live ticks.
 
+The repository also ships immutable public BTC/USDT, ETH/USDT and AAPL candles
+at 1-hour resolution, with deterministic 1-day views. These catalogue entries use
+stable `public-*` dataset/version identifiers, require no per-user import and are
+available to Lab through the same private snapshot contract.
+
 Private `POST /catalogue/dataset-snapshot` accepts an exact ready owned version
 and returns canonical CSV plus SHA-256 for Lab. It is absent from gateway routes.
 See the [Market Data guide](../services/market-data/README.md) for quotas, parser

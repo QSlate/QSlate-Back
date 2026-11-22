@@ -81,6 +81,12 @@ func (c *Client) Snapshot(ctx context.Context, kind, key, version string) (domai
 	}
 	cfg = compact.Bytes()
 	s.Configuration = cfg
+	if len(s.ParameterSchema) > 0 {
+		var schema []json.RawMessage
+		if len(s.ParameterSchema) > 4096 || json.Unmarshal(s.ParameterSchema, &schema) != nil || len(schema) > 64 {
+			return s, domain.ErrUnavailable
+		}
+	}
 	if !utf8.ValidString(s.Source) || strings.TrimSpace(s.Source) == "" || strings.ContainsRune(s.Source, 0) || len(s.Source) > 100000 || len(s.Name) > 600 || len(cfg) < 2 || len(cfg) > 4096 || cfg[0] != '{' || !json.Valid(cfg) || (s.Language != "python" && s.Language != "rust") || (kind == "strategy" && s.Language != "python") {
 		return s, domain.ErrUnavailable
 	}

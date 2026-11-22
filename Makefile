@@ -49,7 +49,7 @@ new-service:
 	GOWORK=off go run ./cmd/new-service -name '$(NAME)'
 
 # These opt-in Docker tests execute only fixed repository-owned Python fixtures.
-.PHONY: simulator-build simulator-test test-engine
+.PHONY: simulator-build simulator-test test-engine up-lab-local
 SIMULATOR_IMAGE ?= qslate-simulator:fb63ed3-lab-v1
 simulator-build:
 	docker build -t $(SIMULATOR_IMAGE) ./simulator
@@ -59,6 +59,9 @@ simulator-test: simulator-build
 
 test-engine: simulator-build
 	cd services/lab && SIMULATOR_TEST_IMAGE=$(SIMULATOR_IMAGE) GOWORK=off go test -race -tags engine -count=1 ./internal/execution
+
+up-lab-local: init simulator-build
+	LAB_CONFIG_FILE=/app/config/lab.local.json LAB_ALLOW_LOCAL_EXECUTION=true docker compose --profile lab-execution up --build -d --wait --wait-timeout 120
 
 .PHONY: market-parser-test
 market-parser-test:

@@ -2,12 +2,15 @@ package service
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"qslate/services/market-data/internal/domain"
+	"regexp"
 	"time"
 	_ "time/tzdata"
 )
@@ -27,18 +30,29 @@ type LiveConfig struct {
 	MaxStreams  int    `json:"max_streams"`
 	Symbols     []Feed `json:"symbols"`
 }
+type PublicDataset struct {
+	ID         string `json:"id"`
+	VersionID  string `json:"version_id"`
+	Symbol     string `json:"symbol"`
+	Name       string `json:"name"`
+	Resolution string `json:"resolution"`
+	File       string `json:"file"`
+	SHA256     string `json:"sha256"`
+}
 type Config struct {
-	MaxUploadBytes       int64      `json:"max_upload_bytes"`
-	MaxRows              int        `json:"max_rows"`
-	MaxDatasets          int        `json:"max_datasets"`
-	MaxOwnerBytes        int64      `json:"max_owner_bytes"`
-	MaxVersions          int        `json:"max_versions"`
-	MaxPageSize          int        `json:"max_page_size"`
-	ParserTimeoutSeconds int        `json:"parser_timeout_seconds"`
-	MaxSnapshotBytes     int        `json:"max_snapshot_bytes"`
-	RequireTimescale     bool       `json:"require_timescale"`
-	AllowedOrigins       []string   `json:"allowed_origins"`
-	Live                 LiveConfig `json:"live"`
+	MaxUploadBytes       int64           `json:"max_upload_bytes"`
+	MaxRows              int             `json:"max_rows"`
+	MaxDatasets          int             `json:"max_datasets"`
+	MaxOwnerBytes        int64           `json:"max_owner_bytes"`
+	MaxVersions          int             `json:"max_versions"`
+	MaxPageSize          int             `json:"max_page_size"`
+	ParserTimeoutSeconds int             `json:"parser_timeout_seconds"`
+	MaxSnapshotBytes     int             `json:"max_snapshot_bytes"`
+	RequireTimescale     bool            `json:"require_timescale"`
+	AllowedOrigins       []string        `json:"allowed_origins"`
+	PublicDataRoot       string          `json:"public_data_root"`
+	PublicDatasets       []PublicDataset `json:"public_datasets"`
+	Live                 LiveConfig      `json:"live"`
 }
 
 func LoadConfig(path string) (Config, error) {
@@ -60,6 +74,9 @@ func LoadConfig(path string) (Config, error) {
 	if d.Decode(new(any)) != io.EOF {
 		return c, errors.New("expected one configuration")
 	}
+	if c.PublicDataRoot != "" && !filepath.IsAbs(c.PublicDataRoot) {
+		c.PublicDataRoot = filepath.Clean(filepath.Join(filepath.Dir(path), c.PublicDataRoot))
+	}
 	return c, c.Validate()
 }
 func (c Config) Validate() error {
@@ -67,6 +84,17 @@ func (c Config) Validate() error {
 		return errors.New("invalid market data limits")
 	}
 	seen := map[string]bool{}
+	if c.PublicDataRoot == "" || len(c.PublicDatasets) == 0 || len(c.PublicDatasets) > 32 {
+		return errors.New("public dataset catalogue required")
+	}
+	publicIDs, publicSymbols := map[string]bool{}, map[string]bool{}
+	for _, d := range c.PublicDatasets {
+		_, checksumErr := hex.DecodeString(d.SHA256)
+		if !publicIDPattern.MatchString(d.ID) || !publicVersionPattern.MatchString(d.VersionID) || d.Symbol == "" || len(d.Symbol) > 64 || d.Name == "" || len(d.Name) > 150 || (d.Resolution != "1h" && d.Resolution != "1d") || !filepath.IsLocal(d.File) || filepath.Ext(d.File) != ".csv" || checksumErr != nil || len(d.SHA256) != 64 || publicIDs[d.ID] || publicSymbols[d.Symbol] {
+			return errors.New("invalid public dataset catalogue")
+		}
+		publicIDs[d.ID], publicSymbols[d.Symbol] = true, true
+	}
 	for _, s := range c.Live.Symbols {
 		if s.Symbol == "" || len(s.Symbol) > 64 || s.Name == "" || s.OwnerID < 0 || seen[s.Symbol] {
 			return errors.New("invalid feed symbols")
@@ -75,6 +103,11 @@ func (c Config) Validate() error {
 	}
 	return nil
 }
+
+var publicIDPattern = regexp.MustCompile(`^public-[a-z0-9-]{1,72}$`)
+var publicVersionPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$`)
+
+func ValidPublicID(s string) bool { return publicIDPattern.MatchString(s) }
 func Origin(origin string, allowHTTP bool) (string, error) {
 	u, e := url.Parse(origin)
 	if e != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") || (u.Scheme != "https" && !(allowHTTP && u.Scheme == "http")) {

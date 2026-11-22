@@ -16,9 +16,10 @@ var (
 )
 
 type Input struct {
-	Name       string          `json:"name"`
-	Source     string          `json:"source"`
-	Parameters json.RawMessage `json:"parameters"`
+	Name            string          `json:"name"`
+	Source          string          `json:"source"`
+	Parameters      json.RawMessage `json:"parameters"`
+	ParameterSchema json.RawMessage `json:"parameter_schema,omitempty"`
 }
 type SaveInput struct {
 	Input
@@ -39,8 +40,9 @@ type Summary struct {
 }
 type Strategy struct {
 	Summary
-	Source     string          `json:"source"`
-	Parameters json.RawMessage `json:"parameters"`
+	Source          string          `json:"source"`
+	Parameters      json.RawMessage `json:"parameters"`
+	ParameterSchema json.RawMessage `json:"parameter_schema,omitempty"`
 }
 type Version struct {
 	VersionID string `json:"version_id"`

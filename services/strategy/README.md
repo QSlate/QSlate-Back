@@ -23,10 +23,15 @@ implementation conventions to validate with the frontend, not recovered PDF text
 
 ## Drafts, revision history and concurrent editing
 
-POST accepts `{name,source,parameters?}`. Names are trimmed and contain 1-150
+POST accepts `{name,source,parameters?,parameter_schema?}`. Names are trimmed and contain 1-150
 printable Unicode characters. Source must be nonblank UTF-8 without NUL, at most
 100000 bytes. Parameters are an opaque JSON object, at most 4096 UTF-8 bytes;
 omission becomes `{}`, while `null` is rejected. Numeric precision is preserved.
+An optional versioned parameter schema describes up to 64 form fields with a
+stable name, `integer`/`number`/`boolean`/`string` type, default, description and
+optional numeric minimum/maximum. When present, configured values must be declared
+and match those bounds. The schema is returned with owned and installed immutable
+execution snapshots so the editor and Lab validate the same revision.
 Saving incomplete or syntactically invalid drafts is allowed: lint is independent.
 
 PUT additionally **requires `base_version_id`**, the current version last read by
@@ -36,7 +41,7 @@ one 409 `version_conflict`; stale writes never insert an orphan revision.
 Clients should reload/merge and explicitly resubmit, not blindly retry a stale save.
 
 Restore accepts `{version_id,base_version_id}`. It copies the selected snapshot's
-name, code and parameters into a **new** revision/ID, recording `restored_from`.
+name, code, parameters and parameter schema into a **new** revision/ID, recording `restored_from`.
 It never rewinds the current pointer or edits historical content. PostgreSQL
 rejects UPDATE/DELETE of version rows and enforces same-strategy version links.
 

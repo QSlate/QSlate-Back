@@ -60,8 +60,9 @@ type Page struct {
 }
 type Installation struct {
 	Summary
-	Source        string          `json:"source"`
-	Configuration json.RawMessage `json:"configuration"`
+	Source          string          `json:"source"`
+	Configuration   json.RawMessage `json:"configuration"`
+	ParameterSchema json.RawMessage `json:"parameter_schema,omitempty"`
 }
 
 func (c *Client) request(ctx context.Context, method, path string, in, out any) error {
@@ -158,6 +159,10 @@ func (c *Client) Resolve(ctx context.Context, key, version string, existing bool
 	}
 	cfg = compact.Bytes()
 	v.Configuration = cfg
+	var schema []json.RawMessage
+	if len(v.ParameterSchema) > 4096 || (len(v.ParameterSchema) > 0 && json.Unmarshal(v.ParameterSchema, &schema) != nil) || len(schema) > 64 {
+		return v, ErrUnavailable
+	}
 	if v.CatalogID != key || v.ItemID != strings.TrimPrefix(key, "market-") || !idPattern.MatchString(v.VersionID) || (version != "" && v.VersionID != version) || len(v.Source) > 100000 || !utf8.ValidString(v.Source) || strings.ContainsRune(v.Source, 0) || len(cfg) < 2 || len(cfg) > 4096 || cfg[0] != '{' || !json.Valid(cfg) || (v.Language != "python" && v.Language != "rust") {
 		return v, ErrUnavailable
 	}

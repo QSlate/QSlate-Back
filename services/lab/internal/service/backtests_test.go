@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 	"qslate/services/lab/internal/domain"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 )
 
 func config(t *testing.T) Config {
@@ -78,6 +80,31 @@ func TestDatasetPinOwnerIntegrityAndTraversal(t *testing.T) {
 	}
 }
 
+func TestLocalExecutionConfigurationRequiresExplicitGuard(t *testing.T) {
+	t.Setenv("LAB_ALLOW_LOCAL_EXECUTION", "")
+	if _, err := LoadConfig("../../config/lab.local.json"); err == nil {
+		t.Fatal("local execution loaded without opt-in")
+	}
+	t.Setenv("LAB_ALLOW_LOCAL_EXECUTION", "true")
+	cfg, err := LoadConfig("../../config/lab.local.json")
+	if err != nil || !cfg.Execution.Enabled || cfg.Execution.Runtime != "runc" {
+		t.Fatal("guarded local execution unavailable", err)
+	}
+}
+
+func TestParameterDefinitionsValidateOverrides(t *testing.T) {
+	minimum, maximum := 2.0, 200.0
+	schema := []domain.ParameterDefinition{{Name: "window", Type: "integer", Default: json.Number("20"), Min: &minimum, Max: &maximum, Description: "Rolling window"}}
+	if err := validateParameters(map[string]any{"window": json.Number("30")}, schema); err != nil {
+		t.Fatal(err)
+	}
+	for _, values := range []map[string]any{{"window": json.Number("1")}, {"window": "20"}, {"unknown": json.Number("1")}} {
+		if err := validateParameters(values, schema); !errors.Is(err, domain.ErrInvalid) {
+			t.Fatal("invalid override accepted")
+		}
+	}
+}
+
 type replayRepo struct {
 	Repository
 	prior domain.Batch
@@ -121,5 +148,29 @@ func TestValidationAndCanonicalKeys(t *testing.T) {
 	b, _ := json.Marshal(in)
 	if hash(b) != hash(b) {
 		t.Fatal("unstable hash")
+	}
+}
+
+func TestPeriodIsBoundedAndFiltersFrozenCSV(t *testing.T) {
+	start := time.Date(2024, 1, 1, 1, 0, 0, 0, time.UTC)
+	end := start.Add(2 * time.Hour)
+	in := domain.RunInput{StrategyID: domain.ID(), StrategyVersionID: domain.ID(), DatasetID: "prices", DatasetVersionID: "v1", InitialCapital: "10000", Window: 1, PeriodStart: &start, PeriodEnd: &end}
+	if err := validate(&in); err != nil {
+		t.Fatal(err)
+	}
+	csv := "Datetime,Open,High,Low,Close,Volume\n2024-01-01T00:00:00Z,1,2,1,2,1\n2024-01-01T01:00:00Z,2,3,2,3,1\n2024-01-01T02:00:00Z,3,4,3,4,1\n2024-01-01T03:00:00Z,4,5,4,5,1\n"
+	filtered, err := filterCSVPeriod(csv, start, end, 1, 10)
+	if err != nil || strings.Contains(filtered, "T00:") || strings.Contains(filtered, "T03:") || !strings.Contains(filtered, "T01:") || !strings.Contains(filtered, "T02:") {
+		t.Fatalf("unexpected filtered dataset: %q %v", filtered, err)
+	}
+	in.PeriodEnd = nil
+	if validate(&in) == nil {
+		t.Fatal("one-sided period accepted")
+	}
+	in.PeriodEnd = &end
+	tooLong := start.Add(367 * 24 * time.Hour)
+	in.PeriodEnd = &tooLong
+	if validate(&in) == nil {
+		t.Fatal("unbounded period accepted")
 	}
 }

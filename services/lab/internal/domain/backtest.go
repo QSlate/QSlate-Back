@@ -36,6 +36,8 @@ type RunInput struct {
 	DatasetVersionID  string         `json:"dataset_version_id"`
 	InitialCapital    string         `json:"initial_capital"`
 	Parameters        map[string]any `json:"parameters,omitempty"`
+	PeriodStart       *time.Time     `json:"period_start,omitempty"`
+	PeriodEnd         *time.Time     `json:"period_end,omitempty"`
 	ExecutionTarget   string         `json:"execution_target,omitempty"`
 	Window            int            `json:"window,omitempty"`
 	CommissionRate    float64        `json:"commission_rate,omitempty"`
@@ -78,9 +80,18 @@ type Batch struct {
 	Backtests      []Job  `json:"backtests"`
 }
 type Snapshot struct {
-	Source     string         `json:"source"`
-	Parameters map[string]any `json:"configuration"`
-	Language   string         `json:"language"`
+	Source          string                `json:"source"`
+	Parameters      map[string]any        `json:"configuration"`
+	ParameterSchema []ParameterDefinition `json:"parameter_schema,omitempty"`
+	Language        string                `json:"language"`
+}
+type ParameterDefinition struct {
+	Name        string   `json:"name"`
+	Type        string   `json:"type"`
+	Default     any      `json:"default"`
+	Min         *float64 `json:"min,omitempty"`
+	Max         *float64 `json:"max,omitempty"`
+	Description string   `json:"description"`
 }
 
 // Frozen is private persisted input, never a response. No access token or host path.

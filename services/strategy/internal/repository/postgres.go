@@ -15,7 +15,7 @@ func New(db *sql.DB) *Postgres { return &Postgres{db} }
 var _ domain.Repository = (*Postgres)(nil)
 
 const summaryColumns = `s.id,v.id,s.revision,v.name,s.created_at,s.updated_at`
-const columns = summaryColumns + `,v.source,v.parameters`
+const columns = summaryColumns + `,v.source,v.parameters,v.parameter_schema`
 const currentJoin = ` FROM strategies s JOIN strategy_versions v ON v.strategy_id=s.id AND v.id=s.current_version_id `
 
 type scanner interface{ Scan(...any) error }
@@ -24,7 +24,7 @@ func scan(row scanner, full bool) (domain.Strategy, error) {
 	var s domain.Strategy
 	args := []any{&s.ID, &s.VersionID, &s.Revision, &s.Name, &s.CreatedAt, &s.UpdatedAt}
 	if full {
-		args = append(args, &s.Source, &s.Parameters)
+		args = append(args, &s.Source, &s.Parameters, &s.ParameterSchema)
 	}
 	err := row.Scan(args...)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -33,7 +33,7 @@ func scan(row scanner, full bool) (domain.Strategy, error) {
 	return s, err
 }
 func insertVersion(ctx context.Context, tx *sql.Tx, sid, vid string, revision int64, in domain.Input, restored string) error {
-	_, err := tx.ExecContext(ctx, `INSERT INTO strategy_versions(id,strategy_id,revision,name,source,parameters,restored_from) VALUES($1,$2,$3,$4,$5,$6,NULLIF($7,''))`, vid, sid, revision, in.Name, in.Source, string(in.Parameters), restored)
+	_, err := tx.ExecContext(ctx, `INSERT INTO strategy_versions(id,strategy_id,revision,name,source,parameters,parameter_schema,restored_from) VALUES($1,$2,$3,$4,$5,$6,$7,NULLIF($8,''))`, vid, sid, revision, in.Name, in.Source, string(in.Parameters), string(in.ParameterSchema), restored)
 	return err
 }
 func (p *Postgres) Create(ctx context.Context, uid int64, sid, vid string, in domain.Input) (domain.Strategy, error) {
@@ -60,7 +60,7 @@ func (p *Postgres) Get(ctx context.Context, uid int64, sid string) (domain.Strat
 
 func (p *Postgres) Snapshot(ctx context.Context, uid int64, sid, version string) (domain.Input, error) {
 	var in domain.Input
-	err := p.db.QueryRowContext(ctx, `SELECT v.name,v.source,v.parameters FROM strategies s JOIN strategy_versions v ON v.strategy_id=s.id WHERE s.owner_id=$1 AND s.id=$2 AND v.id=$3 AND s.deleted_at IS NULL`, uid, sid, version).Scan(&in.Name, &in.Source, &in.Parameters)
+	err := p.db.QueryRowContext(ctx, `SELECT v.name,v.source,v.parameters,v.parameter_schema FROM strategies s JOIN strategy_versions v ON v.strategy_id=s.id WHERE s.owner_id=$1 AND s.id=$2 AND v.id=$3 AND s.deleted_at IS NULL`, uid, sid, version).Scan(&in.Name, &in.Source, &in.Parameters, &in.ParameterSchema)
 	if errors.Is(err, sql.ErrNoRows) {
 		err = domain.ErrNotFound
 	}
@@ -111,7 +111,7 @@ func (p *Postgres) mutate(ctx context.Context, uid int64, sid, vid, base string,
 	if input != nil {
 		in = *input
 	} else {
-		err = tx.QueryRowContext(ctx, `SELECT name,source,parameters FROM strategy_versions WHERE strategy_id=$1 AND id=$2`, sid, restore).Scan(&in.Name, &in.Source, &in.Parameters)
+		err = tx.QueryRowContext(ctx, `SELECT name,source,parameters,parameter_schema FROM strategy_versions WHERE strategy_id=$1 AND id=$2`, sid, restore).Scan(&in.Name, &in.Source, &in.Parameters, &in.ParameterSchema)
 		if errors.Is(err, sql.ErrNoRows) {
 			return domain.Strategy{}, domain.ErrNotFound
 		}
@@ -151,7 +151,7 @@ func (p *Postgres) Delete(ctx context.Context, uid int64, sid string) error {
 func (p *Postgres) Versions(ctx context.Context, uid int64, sid string, before int64, limit int) (domain.VersionPage, error) {
 	page := domain.VersionPage{Items: []domain.Version{}}
 	// One statement snapshot checks ownership even if the requested page is empty.
-	rows, err := p.db.QueryContext(ctx, `SELECT v.id,v.revision,v.name,v.source,v.parameters,COALESCE(v.restored_from,''),v.created_at FROM strategies s LEFT JOIN LATERAL (SELECT * FROM strategy_versions WHERE strategy_id=s.id AND ($3=0 OR revision<$3) ORDER BY revision DESC LIMIT $4) v ON true WHERE s.owner_id=$1 AND s.id=$2 AND s.deleted_at IS NULL ORDER BY v.revision DESC`, uid, sid, before, limit+1)
+	rows, err := p.db.QueryContext(ctx, `SELECT v.id,v.revision,v.name,v.source,v.parameters,v.parameter_schema,COALESCE(v.restored_from,''),v.created_at FROM strategies s LEFT JOIN LATERAL (SELECT * FROM strategy_versions WHERE strategy_id=s.id AND ($3=0 OR revision<$3) ORDER BY revision DESC LIMIT $4) v ON true WHERE s.owner_id=$1 AND s.id=$2 AND s.deleted_at IS NULL ORDER BY v.revision DESC`, uid, sid, before, limit+1)
 	if err != nil {
 		return page, err
 	}
@@ -164,8 +164,8 @@ func (p *Postgres) Versions(ctx context.Context, uid int64, sid string, before i
 		var revision sql.NullInt64
 		var name, source, restored sql.NullString
 		var created sql.NullTime
-		var params []byte
-		if err = rows.Scan(&id, &revision, &name, &source, &params, &restored, &created); err != nil {
+		var params, schema []byte
+		if err = rows.Scan(&id, &revision, &name, &source, &params, &schema, &restored, &created); err != nil {
 			return page, err
 		}
 		if !id.Valid {
@@ -176,6 +176,7 @@ func (p *Postgres) Versions(ctx context.Context, uid int64, sid string, before i
 		v.Name = name.String
 		v.Source = source.String
 		v.Parameters = params
+		v.ParameterSchema = schema
 		v.RestoredFrom = restored.String
 		v.CreatedAt = created.Time
 		page.Items = append(page.Items, v)

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/csv"
 	"encoding/hex"
@@ -96,4 +97,44 @@ func validateCSV(data string, window, maxRows int) error {
 		return domain.ErrInvalid
 	}
 	return nil
+}
+
+func filterCSVPeriod(data string, start, end time.Time, window, maxRows int) (string, error) {
+	r := csv.NewReader(strings.NewReader(data))
+	header, err := r.Read()
+	if err != nil {
+		return "", domain.ErrInvalid
+	}
+	var body bytes.Buffer
+	w := csv.NewWriter(&body)
+	if err = w.Write(header); err != nil {
+		return "", err
+	}
+	for {
+		row, readErr := r.Read()
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil || len(row) == 0 {
+			return "", domain.ErrInvalid
+		}
+		ts, parseErr := time.Parse(time.RFC3339Nano, row[0])
+		if parseErr != nil {
+			return "", domain.ErrInvalid
+		}
+		if !ts.Before(start) && ts.Before(end) {
+			if err = w.Write(row); err != nil {
+				return "", err
+			}
+		}
+	}
+	w.Flush()
+	if err = w.Error(); err != nil {
+		return "", err
+	}
+	out := body.String()
+	if err = validateCSV(out, window, maxRows); err != nil {
+		return "", err
+	}
+	return out, nil
 }
