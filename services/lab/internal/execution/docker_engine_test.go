@@ -16,7 +16,7 @@ import (
 )
 
 // Explicit opt-in tests execute only fixed repository-owned fixtures with runc.
-// Production LoadConfig categorically rejects runc; no request can select it.
+// The default production configuration rejects runc; no request can select it.
 func TestRealPythonEngineThroughGoDockerTransport(t *testing.T) {
 	image := os.Getenv("SIMULATOR_TEST_IMAGE")
 	if image == "" {
@@ -31,6 +31,7 @@ func TestRealPythonEngineThroughGoDockerTransport(t *testing.T) {
 		t.Fatal(e)
 	}
 	cfg.Execution.Runtime = "runc"
+	cfg.Execution.Mode = "local-development"
 	runner := Docker{Config: cfg, imageID: strings.TrimSpace(string(raw))}
 	csv := "Datetime,Open,High,Low,Close,Volume\n"
 	for i := 0; i < 30; i++ {
