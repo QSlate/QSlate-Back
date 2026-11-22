@@ -6,5 +6,6 @@ Never edit an applied migration; add the next numbered file instead.
 
 `001_strategies.sql` creates private strategy metadata, immutable version snapshots,
 same-strategy/current-revision foreign keys and an update/delete rejection trigger.
+`002_parameter_schema.sql` adds immutable, version-scoped parameter form metadata.
 DELETE is archival; historical source retention is intentional, not an erasure API.
 No Auth, Workspace, Widgets, Marketplace or Lab SQL queries belong in this schema.

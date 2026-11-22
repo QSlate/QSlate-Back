@@ -18,10 +18,11 @@ var (
 
 // Snapshot is private, immutable publication content, never public metadata.
 type Snapshot struct {
-	Name          string          `json:"name"`
-	Language      string          `json:"language"`
-	Source        string          `json:"source"`
-	Configuration json.RawMessage `json:"configuration"`
+	Name            string          `json:"name"`
+	Language        string          `json:"language"`
+	Source          string          `json:"source"`
+	Configuration   json.RawMessage `json:"configuration"`
+	ParameterSchema json.RawMessage `json:"parameter_schema,omitempty"`
 }
 type PublishInput struct {
 	Kind        string `json:"kind"`

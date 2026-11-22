@@ -99,3 +99,22 @@ func TestStrictFileConfiguration(t *testing.T) {
 		t.Fatal("source cannot fit configured request cap")
 	}
 }
+
+func TestParameterSchemaIsVersionedAndValidatesDefaults(t *testing.T) {
+	repo := &repositoryStub{}
+	svc, err := New(repo, testConfig(t), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema := json.RawMessage(`[{"name":"window","type":"integer","default":20,"min":2,"max":200,"description":"Rolling window"}]`)
+	_, err = svc.Create(context.Background(), 42, domain.Input{Name: "SMA", Source: "class Strategy: pass", Parameters: json.RawMessage(`{"window":30}`), ParameterSchema: schema})
+	if err != nil || !json.Valid(repo.input.ParameterSchema) {
+		t.Fatal(err)
+	}
+	for _, parameters := range []string{`{"window":1}`, `{"window":"20"}`, `{"unknown":1}`} {
+		_, err = svc.Create(context.Background(), 42, domain.Input{Name: "SMA", Source: "class Strategy: pass", Parameters: json.RawMessage(parameters), ParameterSchema: schema})
+		if !errors.Is(err, domain.ErrInvalid) {
+			t.Fatalf("invalid schema value accepted: %s", parameters)
+		}
+	}
+}

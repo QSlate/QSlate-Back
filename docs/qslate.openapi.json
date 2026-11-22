@@ -8417,6 +8417,13 @@
             "additionalProperties": true,
             "description": "Optional JSON object, at most 4096 UTF-8 bytes. Omission resets to {}; null is invalid."
           },
+          "parameter_schema": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/StrategyParameter"
+            }
+          },
           "restored_from": {
             "type": "string",
             "pattern": "^[A-Za-z0-9_-]{43}$",
@@ -8434,6 +8441,7 @@
           "name",
           "source",
           "parameters",
+          "parameter_schema",
           "created_at"
         ]
       },
@@ -8455,6 +8463,33 @@
           "items"
         ]
       },
+      "StrategyParameter": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["integer", "number", "boolean", "string"]
+          },
+          "default": {},
+          "min": {
+            "type": "number"
+          },
+          "max": {
+            "type": "number"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": ["name", "type", "default", "description"]
+      },
       "StrategyInput": {
         "type": "object",
         "additionalProperties": false,
@@ -8475,6 +8510,14 @@
             "type": "object",
             "additionalProperties": true,
             "description": "Optional JSON object, at most 4096 UTF-8 bytes. Omission resets to {}; null is invalid."
+          },
+          "parameter_schema": {
+            "type": "array",
+            "maxItems": 64,
+            "description": "Versioned UI metadata. Every configured parameter must have one definition when this array is non-empty.",
+            "items": {
+              "$ref": "#/components/schemas/StrategyParameter"
+            }
           }
         },
         "required": [
@@ -8508,6 +8551,12 @@
             "type": "object",
             "additionalProperties": true
           },
+          "parameter_schema": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StrategyParameter"
+            }
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"
@@ -8533,6 +8582,7 @@
           "name",
           "source",
           "parameters",
+          "parameter_schema",
           "created_at",
           "updated_at"
         ]
@@ -8663,6 +8713,16 @@
           "parameters": {
             "type": "object",
             "additionalProperties": true
+          },
+          "period_start": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Inclusive start of the optional UTC test period. Must be provided with period_end."
+          },
+          "period_end": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Exclusive end of the optional UTC test period, at most 366 days after period_start."
           },
           "execution_target": {
             "type": "string",
@@ -9979,6 +10039,10 @@
                 },
                 "version_id": {
                   "type": "string"
+                },
+                "resolution": {
+                  "type": "string",
+                  "enum": ["1h", "1d"]
                 },
                 "live": {
                   "type": "boolean"

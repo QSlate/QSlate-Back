@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Repository interface {
@@ -96,6 +97,16 @@ func validate(in *domain.RunInput) error {
 	if in.Window == 0 {
 		in.Window = 20
 	}
+	if (in.PeriodStart == nil) != (in.PeriodEnd == nil) {
+		return domain.ErrInvalid
+	}
+	if in.PeriodStart != nil {
+		start, end := in.PeriodStart.UTC(), in.PeriodEnd.UTC()
+		if start.Year() < 1970 || end.Year() > 2200 || !end.After(start) || end.Sub(start) > 366*24*time.Hour {
+			return domain.ErrInvalid
+		}
+		in.PeriodStart, in.PeriodEnd = &start, &end
+	}
 	if in.Window < 1 || in.Window > 10000 || in.CommissionRate < 0 || in.CommissionRate > 0.1 || in.SlippageBPS < 0 || in.SlippageBPS > 1000 || math.IsNaN(in.CommissionRate) || math.IsNaN(in.SlippageBPS) || math.IsInf(in.CommissionRate, 0) || math.IsInf(in.SlippageBPS, 0) || (in.ClassName != "" && !ident.MatchString(in.ClassName)) {
 		return domain.ErrInvalid
 	}
@@ -132,6 +143,9 @@ func (l *Lab) frozen(ctx context.Context, owner int64, in domain.RunInput) (doma
 	for k, v := range in.Parameters {
 		params[k] = v
 	}
+	if e = validateParameters(params, snapshot.ParameterSchema); e != nil {
+		return out, e
+	}
 	in.Parameters = params
 	if e = validate(&in); e != nil {
 		return out, e
@@ -148,7 +162,63 @@ func (l *Lab) frozen(ctx context.Context, owner int64, in domain.RunInput) (doma
 	if e != nil {
 		return out, e
 	}
+	if in.PeriodStart != nil {
+		csv, e = filterCSVPeriod(csv, *in.PeriodStart, *in.PeriodEnd, in.Window, l.Config.MaxDatasetRows)
+		if e != nil {
+			return out, e
+		}
+		sum = hash([]byte(csv))
+	}
 	return domain.Frozen{Input: in, Source: snapshot.Source, CSV: csv, SourceSHA256: hash([]byte(snapshot.Source)), DatasetSHA256: sum, EngineRevision: EngineRevision}, nil
+}
+
+func validateParameters(values map[string]any, schema []domain.ParameterDefinition) error {
+	if len(schema) == 0 {
+		return nil
+	}
+	definitions := make(map[string]domain.ParameterDefinition, len(schema))
+	for _, definition := range schema {
+		definitions[definition.Name] = definition
+	}
+	for name, value := range values {
+		definition, ok := definitions[name]
+		if !ok {
+			return domain.ErrInvalid
+		}
+		switch definition.Type {
+		case "boolean":
+			if _, ok = value.(bool); !ok {
+				return domain.ErrInvalid
+			}
+		case "string":
+			if _, ok = value.(string); !ok {
+				return domain.ErrInvalid
+			}
+		case "integer", "number":
+			var number float64
+			switch typed := value.(type) {
+			case json.Number:
+				parsed, err := typed.Float64()
+				number = parsed
+				if err != nil || (definition.Type == "integer" && strings.ContainsAny(typed.String(), ".eE")) {
+					return domain.ErrInvalid
+				}
+			case float64:
+				number = typed
+				if definition.Type == "integer" && number != math.Trunc(number) {
+					return domain.ErrInvalid
+				}
+			default:
+				return domain.ErrInvalid
+			}
+			if (definition.Min != nil && number < *definition.Min) || (definition.Max != nil && number > *definition.Max) {
+				return domain.ErrInvalid
+			}
+		default:
+			return domain.ErrUnavailable
+		}
+	}
+	return nil
 }
 func (l *Lab) Run(ctx context.Context, owner int64, key string, in domain.RunInput) (domain.Job, error) {
 	if owner <= 0 {

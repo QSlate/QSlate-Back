@@ -127,7 +127,107 @@ func normalize(in domain.Input, cfg Config) (domain.Input, error) {
 	}
 	var err error
 	in.Parameters, err = object(in.Parameters, cfg.MaxParametersBytes)
+	if err != nil {
+		return in, err
+	}
+	in.ParameterSchema, err = parameterSchema(in.ParameterSchema, in.Parameters, cfg.MaxParametersBytes)
 	return in, err
+}
+
+type parameterDefinition struct {
+	Name        string          `json:"name"`
+	Type        string          `json:"type"`
+	Default     json.RawMessage `json:"default"`
+	Min         *float64        `json:"min,omitempty"`
+	Max         *float64        `json:"max,omitempty"`
+	Description string          `json:"description"`
+}
+
+var parameterName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,63}$`)
+
+func parameterSchema(raw, parameters json.RawMessage, max int) (json.RawMessage, error) {
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return json.RawMessage(`[]`), nil
+	}
+	if len(raw) > max || !json.Valid(raw) {
+		return nil, invalid("parameter_schema must be a bounded JSON array")
+	}
+	var definitions []parameterDefinition
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	if d.Decode(&definitions) != nil || len(definitions) > 64 {
+		return nil, invalid("parameter_schema must contain at most 64 definitions")
+	}
+	var values map[string]json.RawMessage
+	if json.Unmarshal(parameters, &values) != nil {
+		return nil, invalid("invalid parameters")
+	}
+	seen := map[string]bool{}
+	for _, definition := range definitions {
+		if !parameterName.MatchString(definition.Name) || seen[definition.Name] || utf8.RuneCountInString(definition.Description) < 1 || utf8.RuneCountInString(definition.Description) > 300 {
+			return nil, invalid("invalid parameter definition")
+		}
+		for _, r := range definition.Description {
+			if !unicode.IsPrint(r) {
+				return nil, invalid("parameter description must be printable")
+			}
+		}
+		seen[definition.Name] = true
+		if definition.Type != "integer" && definition.Type != "number" && definition.Type != "boolean" && definition.Type != "string" {
+			return nil, invalid("unsupported parameter type")
+		}
+		if definition.Min != nil && definition.Max != nil && *definition.Min > *definition.Max {
+			return nil, invalid("parameter minimum exceeds maximum")
+		}
+		value := definition.Default
+		if current, ok := values[definition.Name]; ok {
+			value = current
+		}
+		if !validParameterValue(value, definition) {
+			return nil, invalid("parameter value does not match its definition")
+		}
+	}
+	for name := range values {
+		if !seen[name] && len(definitions) > 0 {
+			return nil, invalid("parameters contain an undefined value")
+		}
+	}
+	encoded, err := json.Marshal(definitions)
+	if err != nil || len(encoded) > max {
+		return nil, invalid("parameter_schema too large")
+	}
+	return encoded, nil
+}
+
+func validParameterValue(raw json.RawMessage, definition parameterDefinition) bool {
+	if len(raw) == 0 || !json.Valid(raw) {
+		return false
+	}
+	switch definition.Type {
+	case "string":
+		var value string
+		return json.Unmarshal(raw, &value) == nil && utf8.ValidString(value) && !strings.ContainsRune(value, 0)
+	case "boolean":
+		var value bool
+		return json.Unmarshal(raw, &value) == nil
+	case "integer", "number":
+		trimmed := bytes.TrimSpace(raw)
+		if len(trimmed) == 0 || trimmed[0] == '"' {
+			return false
+		}
+		var number json.Number
+		d := json.NewDecoder(bytes.NewReader(trimmed))
+		d.UseNumber()
+		if d.Decode(&number) != nil {
+			return false
+		}
+		value, err := strconv.ParseFloat(number.String(), 64)
+		if err != nil || (definition.Type == "integer" && strings.ContainsAny(number.String(), ".eE")) {
+			return false
+		}
+		return (definition.Min == nil || value >= *definition.Min) && (definition.Max == nil || value <= *definition.Max)
+	}
+	return false
 }
 func (s *Strategies) Create(ctx context.Context, uid int64, in domain.Input) (domain.Strategy, error) {
 	if err := scope(ctx, uid, ""); err != nil {
